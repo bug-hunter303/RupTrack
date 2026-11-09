@@ -1,55 +1,127 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-const spendingData = [
-  { day: 'Mon', amount: 2200, height: 80 },
-  { day: 'Tue', amount: 2800, height: 106 },
-  { day: 'Wed', amount: 1300, height: 50 },
-  { day: 'Thu', amount: 3300, height: 128 },
-  { day: 'Fri', amount: 2100, height: 76 },
-  { day: 'Sat', amount: 1200, height: 48 },
-  { day: 'Sun', amount: 700, height: 25 },
-];
+type Bill = {
+  id: number;
+  name: string;
+  date: string;
+  total: number;
+};
 
-const transactions = [
-  {
-    title: 'Whole Foods Market',
-    subtitle: 'Bill 1 · Today',
-    amount: '-Rs. 1,000',
-    icon: 'cart',
-    color: '#72C94C',
-  },
-  {
-    title: 'Salary',
-    subtitle: 'Monthly income',
-    amount: '+Rs. 7,650',
-    icon: 'wallet',
-    color: '#299DFA',
-  },
-  {
-    title: 'Daraz',
-    subtitle: 'Bill 2 · Yesterday',
-    amount: '-Rs. 950',
-    icon: 'bag-handle',
-    color: '#9861F5',
-  },
-];
+type IncomeEntry = {
+  id: number;
+  description: string;
+  amount: number;
+  date: string;
+  type: 'salary' | 'additional';
+};
+
+type Transaction = {
+  id: string;
+  title: string;
+  subtitle: string;
+  amount: number;
+  type: 'income' | 'expense';
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  sortDate: number;
+};
+
+type SpendingDay = {
+  day: string;
+  amount: number;
+  height: number;
+};
+
+function money(amount: number) {
+  return `Rs. ${amount.toLocaleString('en-IN', {
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+// Supports both YYYY-MM-DD and dates such as 09 Nov 2026.
+function parseStoredDate(value: string): Date {
+  if (!value) return new Date(0);
+
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (isoMatch) {
+    return new Date(
+      Number(isoMatch[1]),
+      Number(isoMatch[2]) - 1,
+      Number(isoMatch[3])
+    );
+  }
+
+  const displayMatch = value.match(
+    /^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/
+  );
+
+  if (displayMatch) {
+    const day = Number(displayMatch[1]);
+    const monthText = displayMatch[2].slice(0, 3).toLowerCase();
+    const year = Number(displayMatch[3]);
+
+    const months = [
+      'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+      'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+    ];
+
+    const month = months.indexOf(monthText);
+
+    if (month !== -1) {
+      return new Date(year, month, day);
+    }
+  }
+
+  const parsed = new Date(value);
+
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed;
+  }
+
+  return new Date(0);
+}
+
+function formatShortDate(value: string) {
+  const date = parseStoredDate(value);
+
+  if (date.getTime() === 0) return value;
+
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
 
 function SectionHeading({
   title,
   action,
+  onAction,
 }: {
   title: string;
   action?: string;
+  onAction?: () => void;
 }) {
   return (
     <View style={styles.sectionHeading}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      {action ? (
-        <Pressable>
+
+      {action && onAction ? (
+        <Pressable onPress={onAction}>
           <Text style={styles.actionText}>{action}</Text>
         </Pressable>
       ) : null}
@@ -58,6 +130,205 @@ function SectionHeading({
 }
 
 export default function HomeScreen() {
+  const db = useSQLiteContext();
+  const router = useRouter();
+
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [spendingData, setSpendingData] = useState<SpendingDay[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+
+    try {
+      // Check whether this month's salary needs to be credited.
+      const salarySettings = await db.getFirstAsync<{
+        amount: number;
+        credit_day: number;
+        enabled: number;
+      }>(
+        `SELECT amount, credit_day, enabled
+         FROM salary_settings
+         WHERE id = 1`
+      );
+
+      if (
+        salarySettings &&
+        salarySettings.enabled === 1 &&
+        salarySettings.amount > 0
+      ) {
+        const today = new Date();
+
+        if (today.getDate() >= salarySettings.credit_day) {
+          const year = today.getFullYear();
+          const month = String(today.getMonth() + 1).padStart(2, '0');
+          const periodKey = `salary-${year}-${month}`;
+
+          const lastDay = new Date(
+            year,
+            today.getMonth() + 1,
+            0
+          ).getDate();
+
+          const creditDay = Math.min(
+            salarySettings.credit_day,
+            lastDay
+          );
+
+          const creditDate =
+            `${year}-${month}-${String(creditDay).padStart(2, '0')}`;
+
+          await db.runAsync(
+            `INSERT OR IGNORE INTO income
+              (description, amount, type, date, period_key)
+             VALUES (?, ?, 'salary', ?, ?)`,
+            'Monthly Salary',
+            salarySettings.amount,
+            creditDate,
+            periodKey
+          );
+        }
+      }
+
+      // Load all income entries.
+      const incomeRows = await db.getAllAsync<IncomeEntry>(
+        `SELECT id, description, amount, date, type
+         FROM income
+         ORDER BY id DESC`
+      );
+
+      // Load all saved expense bills.
+      const billRows = await db.getAllAsync<Bill>(
+        `SELECT id, name, date, total
+         FROM bills
+         ORDER BY id DESC`
+      );
+
+      // Calculate totals from SQLite.
+      const incomeTotal = incomeRows.reduce(
+        (sum, entry) => sum + Number(entry.amount || 0),
+        0
+      );
+
+      const expenseTotal = billRows.reduce(
+        (sum, bill) => sum + Number(bill.total || 0),
+        0
+      );
+
+      setTotalIncome(incomeTotal);
+      setTotalExpenses(expenseTotal);
+
+      // Combine income and expense entries.
+      const combined: Transaction[] = [
+        ...incomeRows.map((entry) => ({
+          id: `income-${entry.id}`,
+          title: entry.description,
+          subtitle:
+            `${entry.type === 'salary' ? 'Monthly salary' : 'Additional income'} · ${formatShortDate(entry.date)}`,
+          amount: Number(entry.amount || 0),
+          type: 'income' as const,
+          icon: (
+            entry.type === 'salary'
+              ? 'briefcase-outline'
+              : 'cash-outline'
+          ) as keyof typeof Ionicons.glyphMap,
+          color: '#16A673',
+          sortDate: parseStoredDate(entry.date).getTime(),
+        })),
+
+        ...billRows.map((bill) => ({
+          id: `bill-${bill.id}`,
+          title: bill.name,
+          subtitle: `Expense bill · ${formatShortDate(bill.date)}`,
+          amount: Number(bill.total || 0),
+          type: 'expense' as const,
+          icon: 'receipt-outline' as keyof typeof Ionicons.glyphMap,
+          color: '#E34D4D',
+          sortDate: parseStoredDate(bill.date).getTime(),
+        })),
+      ];
+
+      combined.sort((a, b) => {
+        if (b.sortDate !== a.sortDate) {
+          return b.sortDate - a.sortDate;
+        }
+
+        return b.id.localeCompare(a.id);
+      });
+
+      setTransactions(combined.slice(0, 5));
+
+      // Build the spending chart for the last seven calendar days.
+      const today = new Date();
+      const days: SpendingDay[] = [];
+      const amounts: number[] = [];
+
+      for (let offset = 6; offset >= 0; offset--) {
+        const date = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate() - offset
+        );
+
+        const dayAmount = billRows.reduce((sum, bill) => {
+          const billDate = parseStoredDate(bill.date);
+
+          const sameDay =
+            billDate.getTime() !== 0 &&
+            billDate.getFullYear() === date.getFullYear() &&
+            billDate.getMonth() === date.getMonth() &&
+            billDate.getDate() === date.getDate();
+
+          return sameDay
+            ? sum + Number(bill.total || 0)
+            : sum;
+        }, 0);
+
+        amounts.push(dayAmount);
+
+        days.push({
+          day: date.toLocaleDateString('en-US', {
+            weekday: 'short',
+          }),
+          amount: dayAmount,
+          height: 0,
+        });
+      }
+
+      const maxAmount = Math.max(...amounts, 1);
+
+      const chartDays = days.map((item) => ({
+        ...item,
+        height:
+          item.amount === 0
+            ? 4
+            : Math.max(8, (item.amount / maxAmount) * 125),
+      }));
+
+      setSpendingData(chartDays);
+    } catch (error) {
+      console.error('Dashboard loading error:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [db]);
+
+  // Reload the dashboard every time Home becomes active.
+  useFocusEffect(
+    useCallback(() => {
+      void loadDashboard();
+    }, [loadDashboard])
+  );
+
+  const balance = totalIncome - totalExpenses;
+
+  const maximumChartAmount = Math.max(
+    ...spendingData.map((item) => item.amount),
+    1
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
@@ -70,9 +341,15 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <Text style={styles.logo}>RupTrack</Text>
 
-          <Pressable style={styles.notificationButton}>
-            <Ionicons name="notifications-outline" size={23} color="#777D89" />
-            <View style={styles.notificationDot} />
+          <Pressable
+            style={styles.notificationButton}
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={23}
+              color="#777D89"
+            />
           </Pressable>
         </View>
 
@@ -86,27 +363,55 @@ export default function HomeScreen() {
           <View style={styles.balanceTop}>
             <View style={styles.balanceLabelRow}>
               <Text style={styles.balanceLabel}>Total Balance</Text>
-              <Ionicons name="eye-outline" size={17} color="#FFFFFF" />
+              <Ionicons
+                name="eye-outline"
+                size={17}
+                color="#FFFFFF"
+              />
             </View>
 
-            <Pressable style={styles.cardArrow}>
-              <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
+            <Pressable
+              style={styles.cardArrow}
+              onPress={() => router.push('/income-history')}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={22}
+                color="#FFFFFF"
+              />
             </Pressable>
           </View>
 
-          <Text style={styles.balanceAmount}>Rs. 4,820</Text>
+          {loading ? (
+            <ActivityIndicator
+              color="#FFFFFF"
+              size="large"
+              style={{
+                alignSelf: 'flex-start',
+                marginVertical: 15,
+              }}
+            />
+          ) : (
+            <Text style={styles.balanceAmount}>
+              {money(balance)}
+            </Text>
+          )}
 
           <View style={styles.balanceDetails}>
             <View style={styles.balanceColumn}>
               <Text style={styles.detailLabel}>Income</Text>
-              <Text style={styles.detailAmount}>Rs. 7,650</Text>
+              <Text style={styles.detailAmount}>
+                {money(totalIncome)}
+              </Text>
             </View>
 
             <View style={styles.verticalDivider} />
 
             <View style={styles.balanceColumn}>
               <Text style={styles.detailLabel}>Expenses</Text>
-              <Text style={styles.detailAmount}>Rs. 2,829</Text>
+              <Text style={styles.detailAmount}>
+                {money(totalExpenses)}
+              </Text>
             </View>
           </View>
         </LinearGradient>
@@ -116,22 +421,25 @@ export default function HomeScreen() {
           <SectionHeading title="Spending Overview" />
 
           <View style={styles.chartHeader}>
-            <Text style={styles.chartPeriod}>This Week</Text>
+            <Text style={styles.chartPeriod}>Last 7 days</Text>
+
             <View style={styles.periodSelector}>
-              <Text style={styles.periodText}>This Week</Text>
-              <Ionicons name="chevron-down" size={14} color="#777D89" />
+              <Text style={styles.periodText}>Last 7 days</Text>
+              <Ionicons
+                name="calendar-outline"
+                size={14}
+                color="#777D89"
+              />
             </View>
           </View>
 
           <View style={styles.chart}>
             <View style={styles.yAxis}>
-              {['Rs. 5K', 'Rs. 4K', 'Rs. 3K', 'Rs. 2K', 'Rs. 1K'].map(
-                (label) => (
-                  <Text key={label} style={styles.axisLabel}>
-                    {label}
-                  </Text>
-                ),
-              )}
+              {[1, 0.75, 0.5, 0.25, 0].map((fraction, index) => (
+                <Text key={index} style={styles.axisLabel}>
+                  {money(maximumChartAmount * fraction)}
+                </Text>
+              ))}
             </View>
 
             <View style={styles.chartContent}>
@@ -142,59 +450,116 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.bars}>
-                {spendingData.map((item) => (
-                  <View key={item.day} style={styles.barColumn}>
+                {spendingData.map((item, index) => (
+                  <View
+                    key={`${item.day}-${index}`}
+                    style={styles.barColumn}
+                  >
                     <View
-                      style={[styles.bar, { height: item.height }]}
+                      style={[
+                        styles.bar,
+                        { height: item.height },
+                        item.amount === 0 && styles.emptyBar,
+                      ]}
                     />
-                    <Text style={styles.dayLabel}>{item.day}</Text>
+                    <Text style={styles.dayLabel}>
+                      {item.day}
+                    </Text>
                   </View>
                 ))}
               </View>
             </View>
           </View>
+
+          {!loading &&
+          spendingData.every((item) => item.amount === 0) ? (
+            <Text style={styles.noSpending}>
+              No expenses recorded in the last 7 days.
+            </Text>
+          ) : null}
         </View>
 
         {/* Recent Transactions */}
         <View style={styles.transactionsSection}>
-          <SectionHeading title="Recent Transactions" action="View All" />
+          <SectionHeading
+            title="Recent Transactions"
+            action="Income History"
+            onAction={() => router.push('/income-history')}
+          />
 
           <View style={styles.transactionsCard}>
-            {transactions.map((item, index) => (
-              <View
-                key={item.title}
-                style={[
-                  styles.transactionRow,
-                  index !== transactions.length - 1 && styles.transactionBorder,
-                ]}
-              >
-                <View
-                  style={[styles.transactionIcon, { backgroundColor: item.color }]}
-                >
-                  <Ionicons
-                    name={item.icon as keyof typeof Ionicons.glyphMap}
-                    size={19}
-                    color="#FFFFFF"
-                  />
-                </View>
-
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionTitle}>{item.title}</Text>
-                  <Text style={styles.transactionSubtitle}>{item.subtitle}</Text>
-                </View>
-
-                <Text
-                  style={[
-                    styles.transactionAmount,
-                    item.amount.startsWith('+') && styles.incomeAmount,
-                  ]}
-                >
-                  {item.amount}
+            {loading ? (
+              <ActivityIndicator
+                color="#1687FF"
+                style={{ padding: 25 }}
+              />
+            ) : transactions.length === 0 ? (
+              <View style={styles.emptyTransactions}>
+                <Ionicons
+                  name="receipt-outline"
+                  size={30}
+                  color="#A0A6B4"
+                />
+                <Text style={styles.emptyTitle}>
+                  No transactions yet
+                </Text>
+                <Text style={styles.emptySubtitle}>
+                  Your income and expense bills will appear here.
                 </Text>
               </View>
-            ))}
+            ) : (
+              transactions.map((item, index) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.transactionRow,
+                    index !== transactions.length - 1 &&
+                      styles.transactionBorder,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.transactionIcon,
+                      { backgroundColor: item.color },
+                    ]}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={19}
+                      color="#FFFFFF"
+                    />
+                  </View>
+
+                  <View style={styles.transactionInfo}>
+                    <Text
+                      style={styles.transactionTitle}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </Text>
+
+                    <Text style={styles.transactionSubtitle}>
+                      {item.subtitle}
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.transactionAmount,
+                      item.type === 'income' &&
+                        styles.incomeAmount,
+                    ]}
+                  >
+                    {item.type === 'income' ? '+' : '-'}
+                    {money(item.amount)}
+                  </Text>
+                </View>
+              ))
+            )}
           </View>
         </View>
+
+        <View style={{ height: 25 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -224,15 +589,6 @@ const styles = StyleSheet.create({
   notificationButton: {
     padding: 5,
     position: 'relative',
-  },
-  notificationDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#1687FF',
-    position: 'absolute',
-    top: 3,
-    right: 2,
   },
   balanceCard: {
     minHeight: 197,
@@ -270,8 +626,8 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     color: '#FFFFFF',
-    fontSize: 40,
-    fontWeight: '500',
+    fontSize: 34,
+    fontWeight: '700',
     letterSpacing: -1,
     marginTop: 2,
   },
@@ -347,13 +703,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   yAxis: {
-    width: 34,
+    width: 57,
     justifyContent: 'space-between',
     paddingBottom: 25,
     paddingTop: 1,
   },
   axisLabel: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#8A8F99',
   },
   chartContent: {
@@ -378,7 +734,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-around',
-    paddingBottom: 0,
   },
   barColumn: {
     flex: 1,
@@ -394,10 +749,18 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     backgroundColor: '#1687F5',
   },
+  emptyBar: {
+    opacity: 0.25,
+  },
   dayLabel: {
     fontSize: 10,
     color: '#858995',
     height: 17,
+  },
+  noSpending: {
+    fontSize: 11,
+    color: '#9296A0',
+    marginTop: 5,
   },
   transactionsSection: {
     marginTop: 22,
@@ -419,9 +782,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ECEEF2',
   },
   transactionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 17,
+    width: 35,
+    height: 35,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -432,18 +795,35 @@ const styles = StyleSheet.create({
   transactionTitle: {
     color: '#171B28',
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   transactionSubtitle: {
     color: '#9296A0',
     fontSize: 10,
   },
   transactionAmount: {
-    color: '#171B28',
-    fontSize: 11,
-    fontWeight: '500',
+    color: '#E34D4D',
+    fontSize: 10,
+    fontWeight: '700',
   },
   incomeAmount: {
     color: '#16A36A',
+  },
+  emptyTransactions: {
+    alignItems: 'center',
+    paddingVertical: 27,
+    paddingHorizontal: 15,
+  },
+  emptyTitle: {
+    color: '#171B28',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 10,
+  },
+  emptySubtitle: {
+    color: '#9296A0',
+    fontSize: 10,
+    marginTop: 5,
+    textAlign: 'center',
   },
 });

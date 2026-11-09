@@ -25,8 +25,12 @@ function BottomNavigation({ state, navigation }: BottomTabBarProps) {
   const [menuVisible, setMenuVisible] = useState(false);
 
   function openScreen(screen: 'income' | 'expense') {
+    console.log('Opening route:', screen);
     setMenuVisible(false);
-    router.push(`/${screen}`);
+
+    setTimeout(() => {
+      router.push(`/${screen}`);
+    }, 150);
   }
 
   return (
