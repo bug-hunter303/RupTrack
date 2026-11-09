@@ -89,7 +89,7 @@ function BottomNavigation({ state, navigation }: BottomTabBarProps) {
       <Modal
         visible={menuVisible}
         transparent
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setMenuVisible(false)}
       >
         <Pressable
@@ -162,9 +162,7 @@ export default function AppTabs() {
       <Tabs.Screen name="analytics" />
       <Tabs.Screen name="budget" />
       <Tabs.Screen name="settings" />
-      <Tabs.Screen name="add" options={{ href: null }} />
-      <Tabs.Screen name="income" options={{ href: null }} />
-      <Tabs.Screen name="expense" options={{ href: null }} />
+      
     </Tabs>
   );
 }
@@ -174,8 +172,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingTop: 10,
     paddingHorizontal: 8,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     shadowColor: '#172033',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.07,
@@ -223,17 +221,20 @@ const styles = StyleSheet.create({
     elevation: 9,
   },
   modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
+  flex: 1,
+  backgroundColor: 'rgba(10, 15, 30, 0.45)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: 24,
   },
   menuCard: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: 30,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+  width: '100%',
+  maxWidth: 380,
+  backgroundColor: '#FFFFFF',
+  paddingHorizontal: 22,
+  paddingTop: 24,
+  paddingBottom: 18,
+  borderRadius: 25,
   },
   handle: {
     width: 42,
