@@ -1,12 +1,13 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -49,7 +50,7 @@ const COLORS = {
   white: '#FFFFFF',
   navy: '#17233D',
   muted: '#8992A5',
-  purple: '#6256F5',
+  purple: '#7656D6',
   blue: '#2878E5',
   green: '#16A673',
   red: '#E35D6A',
@@ -629,18 +630,17 @@ export default function BudgetScreen() {
         ? COLORS.orange
         : COLORS.green;
 
-  const selectedDate = goalDate
-    ? new Date(`${goalDate}T12:00:00`)
-    : new Date();
-
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView
+        style={styles.loadingContainer}
+        edges={['top']}
+      >
         <ActivityIndicator
           size="large"
           color={COLORS.purple}
         />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -792,14 +792,21 @@ export default function BudgetScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView
+      style={styles.screen}
+      edges={['top']}
+    >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
+        {/* Header matching Analytics */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.eyebrow}>
+              YOUR MONEY, YOUR STORY
+            </Text>
+
             <Text style={styles.headerTitle}>
               Budget
             </Text>
@@ -1502,7 +1509,7 @@ export default function BudgetScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -1519,24 +1526,34 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 19,
-    paddingTop: 10,
+    paddingTop: 14,
     paddingBottom: 25,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 22,
+    marginBottom: 25,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  eyebrow: {
+    color: COLORS.purple,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 7,
   },
   headerTitle: {
     color: COLORS.navy,
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: '800',
   },
   headerSubtitle: {
     color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 5,
   },
   headerIcon: {
     width: 43,
@@ -1545,6 +1562,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFEDFF',
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 12,
   },
   savingsCard: {
     backgroundColor: COLORS.purple,
