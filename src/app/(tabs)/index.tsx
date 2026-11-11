@@ -5,10 +5,12 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -46,60 +48,89 @@ type SpendingDay = {
   height: number;
 };
 
+type HomeGoal = {
+  id: number;
+  name: string;
+  target_amount: number;
+  saved_amount: number;
+  target_date: string | null;
+  is_completed: number;
+  completed_at: string | null;
+};
+
+type AppNotification = {
+  id: number;
+  title: string;
+  message: string;
+  type: string;
+  goal_id: number | null;
+  created_at: string;
+  is_read: number;
+};
+
 function money(amount: number) {
   return `Rs. ${amount.toLocaleString('en-IN', {
     maximumFractionDigits: 2,
   })}`;
 }
 
-// Supports both YYYY-MM-DD and dates such as 09 Nov 2026.
 function parseStoredDate(value: string): Date {
   if (!value) return new Date(0);
 
-  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
-  if (isoMatch) {
+  if (iso) {
     return new Date(
-      Number(isoMatch[1]),
-      Number(isoMatch[2]) - 1,
-      Number(isoMatch[3])
+      Number(iso[1]),
+      Number(iso[2]) - 1,
+      Number(iso[3])
     );
   }
 
-  const displayMatch = value.match(
+  const display = value.match(
     /^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/
   );
 
-  if (displayMatch) {
-    const day = Number(displayMatch[1]);
-    const monthText = displayMatch[2].slice(0, 3).toLowerCase();
-    const year = Number(displayMatch[3]);
-
+  if (display) {
     const months = [
-      'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-      'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
     ];
 
-    const month = months.indexOf(monthText);
+    const month = months.indexOf(
+      display[2].slice(0, 3).toLowerCase()
+    );
 
-    if (month !== -1) {
-      return new Date(year, month, day);
+    if (month >= 0) {
+      return new Date(
+        Number(display[3]),
+        month,
+        Number(display[1])
+      );
     }
   }
 
   const parsed = new Date(value);
 
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed;
-  }
-
-  return new Date(0);
+  return Number.isNaN(parsed.getTime())
+    ? new Date(0)
+    : parsed;
 }
 
 function formatShortDate(value: string) {
   const date = parseStoredDate(value);
 
-  if (date.getTime() === 0) return value;
+  if (!date.getTime()) return value;
 
   return date.toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -135,16 +166,31 @@ export default function HomeScreen() {
 
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [spendingData, setSpendingData] = useState<SpendingDay[]>([]);
+  const [transactions, setTransactions] = useState<
+    Transaction[]
+  >([]);
+  const [spendingData, setSpendingData] = useState<
+    SpendingDay[]
+  >([]);
+  const [notifications, setNotifications] = useState<
+    AppNotification[]
+  >([]);
+  const [activeGoals, setActiveGoals] = useState<HomeGoal[]>(
+    []
+  );
+  const [completedGoals, setCompletedGoals] = useState<
+    HomeGoal[]
+  >([]);
   const [loading, setLoading] = useState(true);
+  const [balanceVisible, setBalanceVisible] = useState(true);
+  const [notificationsVisible, setNotificationsVisible] =
+    useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
 
     try {
-      // Check whether this month's salary needs to be credited.
-      const salarySettings = await db.getFirstAsync<{
+      const salary = await db.getFirstAsync<{
         amount: number;
         credit_day: number;
         enabled: number;
@@ -155,16 +201,17 @@ export default function HomeScreen() {
       );
 
       if (
-        salarySettings &&
-        salarySettings.enabled === 1 &&
-        salarySettings.amount > 0
+        salary &&
+        salary.enabled === 1 &&
+        salary.amount > 0
       ) {
         const today = new Date();
 
-        if (today.getDate() >= salarySettings.credit_day) {
+        if (today.getDate() >= salary.credit_day) {
           const year = today.getFullYear();
-          const month = String(today.getMonth() + 1).padStart(2, '0');
-          const periodKey = `salary-${year}-${month}`;
+          const month = String(
+            today.getMonth() + 1
+          ).padStart(2, '0');
 
           const lastDay = new Date(
             year,
@@ -173,60 +220,64 @@ export default function HomeScreen() {
           ).getDate();
 
           const creditDay = Math.min(
-            salarySettings.credit_day,
+            salary.credit_day,
             lastDay
           );
 
-          const creditDate =
-            `${year}-${month}-${String(creditDay).padStart(2, '0')}`;
+          const creditDate = `${year}-${month}-${String(
+            creditDay
+          ).padStart(2, '0')}`;
 
           await db.runAsync(
             `INSERT OR IGNORE INTO income
-              (description, amount, type, date, period_key)
+             (description, amount, type, date, period_key)
              VALUES (?, ?, 'salary', ?, ?)`,
             'Monthly Salary',
-            salarySettings.amount,
+            salary.amount,
             creditDate,
-            periodKey
+            `salary-${year}-${month}`
           );
         }
       }
 
-      // Load all income entries.
-      const incomeRows = await db.getAllAsync<IncomeEntry>(
-        `SELECT id, description, amount, date, type
-         FROM income
-         ORDER BY id DESC`
-      );
+      const incomeRows =
+        await db.getAllAsync<IncomeEntry>(
+          `SELECT id, description, amount, date, type
+           FROM income
+           ORDER BY id DESC`
+        );
 
-      // Load all saved expense bills.
       const billRows = await db.getAllAsync<Bill>(
         `SELECT id, name, date, total
          FROM bills
          ORDER BY id DESC`
       );
 
-      // Calculate totals from SQLite.
-      const incomeTotal = incomeRows.reduce(
-        (sum, entry) => sum + Number(entry.amount || 0),
-        0
+      setTotalIncome(
+        incomeRows.reduce(
+          (sum, item) =>
+            sum + Number(item.amount || 0),
+          0
+        )
       );
 
-      const expenseTotal = billRows.reduce(
-        (sum, bill) => sum + Number(bill.total || 0),
-        0
+      setTotalExpenses(
+        billRows.reduce(
+          (sum, item) =>
+            sum + Number(item.total || 0),
+          0
+        )
       );
 
-      setTotalIncome(incomeTotal);
-      setTotalExpenses(expenseTotal);
-
-      // Combine income and expense entries.
       const combined: Transaction[] = [
         ...incomeRows.map((entry) => ({
           id: `income-${entry.id}`,
           title: entry.description,
-          subtitle:
-            `${entry.type === 'salary' ? 'Monthly salary' : 'Additional income'} · ${formatShortDate(entry.date)}`,
+          subtitle: `${
+            entry.type === 'salary'
+              ? 'Monthly salary'
+              : 'Additional income'
+          } · ${formatShortDate(entry.date)}`,
           amount: Number(entry.amount || 0),
           type: 'income' as const,
           icon: (
@@ -235,32 +286,35 @@ export default function HomeScreen() {
               : 'cash-outline'
           ) as keyof typeof Ionicons.glyphMap,
           color: '#16A673',
-          sortDate: parseStoredDate(entry.date).getTime(),
+          sortDate: parseStoredDate(
+            entry.date
+          ).getTime(),
         })),
 
         ...billRows.map((bill) => ({
           id: `bill-${bill.id}`,
           title: bill.name,
-          subtitle: `Expense bill · ${formatShortDate(bill.date)}`,
+          subtitle: `Expense bill · ${formatShortDate(
+            bill.date
+          )}`,
           amount: Number(bill.total || 0),
           type: 'expense' as const,
           icon: 'receipt-outline' as keyof typeof Ionicons.glyphMap,
           color: '#E34D4D',
-          sortDate: parseStoredDate(bill.date).getTime(),
+          sortDate: parseStoredDate(
+            bill.date
+          ).getTime(),
         })),
       ];
 
-      combined.sort((a, b) => {
-        if (b.sortDate !== a.sortDate) {
-          return b.sortDate - a.sortDate;
-        }
-
-        return b.id.localeCompare(a.id);
-      });
+      combined.sort(
+        (a, b) =>
+          b.sortDate - a.sortDate ||
+          b.id.localeCompare(a.id)
+      );
 
       setTransactions(combined.slice(0, 5));
 
-      // Build the spending chart for the last seven calendar days.
       const today = new Date();
       const days: SpendingDay[] = [];
       const amounts: number[] = [];
@@ -272,88 +326,178 @@ export default function HomeScreen() {
           today.getDate() - offset
         );
 
-        const dayAmount = billRows.reduce((sum, bill) => {
-          const billDate = parseStoredDate(bill.date);
+        const amount = billRows.reduce(
+          (sum, bill) => {
+            const billDate = parseStoredDate(bill.date);
 
-          const sameDay =
-            billDate.getTime() !== 0 &&
-            billDate.getFullYear() === date.getFullYear() &&
-            billDate.getMonth() === date.getMonth() &&
-            billDate.getDate() === date.getDate();
+            return (
+              billDate.getTime() &&
+              billDate.getFullYear() === date.getFullYear() &&
+              billDate.getMonth() === date.getMonth() &&
+              billDate.getDate() === date.getDate()
+            )
+              ? sum + Number(bill.total || 0)
+              : sum;
+          },
+          0
+        );
 
-          return sameDay
-            ? sum + Number(bill.total || 0)
-            : sum;
-        }, 0);
-
-        amounts.push(dayAmount);
+        amounts.push(amount);
 
         days.push({
           day: date.toLocaleDateString('en-US', {
             weekday: 'short',
           }),
-          amount: dayAmount,
+          amount,
           height: 0,
         });
       }
 
       const maxAmount = Math.max(...amounts, 1);
 
-      const chartDays = days.map((item) => ({
-        ...item,
-        height:
-          item.amount === 0
-            ? 4
-            : Math.max(8, (item.amount / maxAmount) * 125),
-      }));
+      setSpendingData(
+        days.map((item) => ({
+          ...item,
+          height:
+            item.amount === 0
+              ? 4
+              : Math.max(
+                  8,
+                  (item.amount / maxAmount) * 125
+                ),
+        }))
+      );
 
-      setSpendingData(chartDays);
+      // Remove completed goals after seven days.
+      // Add a notification explaining the automatic removal.
+      await db.runAsync(`
+        INSERT INTO notifications (title, message, type, goal_id)
+        SELECT 'Goal removed',
+               'Your completed goal "' || name || '" was automatically removed after 7 days.',
+               'goal_deleted', NULL
+        FROM savings_goals
+        WHERE is_completed = 1
+          AND completed_at IS NOT NULL
+          AND datetime(completed_at, '+7 days') <= datetime('now')
+      `);
+
+      await db.runAsync(`
+        DELETE FROM savings_goals
+        WHERE is_completed = 1
+          AND completed_at IS NOT NULL
+          AND datetime(completed_at, '+7 days') <= datetime('now')
+      `);
+
+      const notificationRows =
+        await db.getAllAsync<AppNotification>(
+          `SELECT id, title, message, type, goal_id,
+                  created_at, is_read
+           FROM notifications
+           ORDER BY id DESC
+           LIMIT 50`
+        );
+
+      setNotifications(notificationRows);
+
+      const goalRows = await db.getAllAsync<HomeGoal>(
+        `SELECT id, name, target_amount, saved_amount,
+                target_date, is_completed, completed_at
+         FROM savings_goals
+         ORDER BY created_at DESC, id DESC`
+      );
+
+      setActiveGoals(
+        goalRows.filter(
+          (goal) => goal.is_completed !== 1
+        )
+      );
+
+      setCompletedGoals(
+        goalRows.filter(
+          (goal) => goal.is_completed === 1
+        )
+      );
     } catch (error) {
-      console.error('Dashboard loading error:', error);
+      console.error(
+        'Dashboard loading error:',
+        error
+      );
     } finally {
       setLoading(false);
     }
   }, [db]);
 
-  // Reload the dashboard every time Home becomes active.
   useFocusEffect(
     useCallback(() => {
       void loadDashboard();
     }, [loadDashboard])
   );
 
+  const openNotifications = async () => {
+    setNotificationsVisible(true);
+
+    try {
+      await db.runAsync(
+        'UPDATE notifications SET is_read = 1 WHERE is_read = 0'
+      );
+
+      setNotifications((current) =>
+        current.map((item) => ({
+          ...item,
+          is_read: 1,
+        }))
+      );
+    } catch (error) {
+      console.error(
+        'Could not mark notifications as read:',
+        error
+      );
+    }
+  };
+
   const balance = totalIncome - totalExpenses;
 
-  const maximumChartAmount = Math.max(
+  const maxChart = Math.max(
     ...spendingData.map((item) => item.amount),
     1
   );
 
+  const unreadCount = notifications.filter(
+    (item) => item.is_read === 0
+  ).length;
+
+  const hiddenMoney = 'Rs. ••••••';
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top']}
+    >
       <StatusBar style="dark" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>RupTrack</Text>
 
           <Pressable
             style={styles.notificationButton}
-            onPress={() => router.push('/settings')}
+            onPress={openNotifications}
           >
             <Ionicons
-              name="settings-outline"
+              name="notifications-outline"
               size={23}
               color="#777D89"
             />
+
+            {unreadCount > 0 ? (
+              <View style={styles.notificationDot} />
+            ) : null}
           </Pressable>
         </View>
 
-        {/* Balance Card */}
         <LinearGradient
           colors={['#58B8FF', '#0870E9', '#0759D5']}
           start={{ x: 0, y: 0 }}
@@ -362,17 +506,33 @@ export default function HomeScreen() {
         >
           <View style={styles.balanceTop}>
             <View style={styles.balanceLabelRow}>
-              <Text style={styles.balanceLabel}>Total Balance</Text>
-              <Ionicons
-                name="eye-outline"
-                size={17}
-                color="#FFFFFF"
-              />
+              <Text style={styles.balanceLabel}>
+                Total Balance
+              </Text>
+
+              <Pressable
+                onPress={() =>
+                  setBalanceVisible((value) => !value)
+                }
+                hitSlop={10}
+              >
+                <Ionicons
+                  name={
+                    balanceVisible
+                      ? 'eye-outline'
+                      : 'eye-off-outline'
+                  }
+                  size={19}
+                  color="#FFFFFF"
+                />
+              </Pressable>
             </View>
 
             <Pressable
               style={styles.cardArrow}
-              onPress={() => router.push('/income-history')}
+              onPress={() =>
+                router.push('/income-history')
+              }
             >
               <Ionicons
                 name="chevron-forward"
@@ -393,59 +553,213 @@ export default function HomeScreen() {
             />
           ) : (
             <Text style={styles.balanceAmount}>
-              {money(balance)}
+              {balanceVisible
+                ? money(balance)
+                : hiddenMoney}
             </Text>
           )}
 
           <View style={styles.balanceDetails}>
             <View style={styles.balanceColumn}>
-              <Text style={styles.detailLabel}>Income</Text>
+              <Text style={styles.detailLabel}>
+                Income
+              </Text>
               <Text style={styles.detailAmount}>
-                {money(totalIncome)}
+                {balanceVisible
+                  ? money(totalIncome)
+                  : hiddenMoney}
               </Text>
             </View>
 
             <View style={styles.verticalDivider} />
 
             <View style={styles.balanceColumn}>
-              <Text style={styles.detailLabel}>Expenses</Text>
+              <Text style={styles.detailLabel}>
+                Expenses
+              </Text>
               <Text style={styles.detailAmount}>
-                {money(totalExpenses)}
+                {balanceVisible
+                  ? money(totalExpenses)
+                  : hiddenMoney}
               </Text>
             </View>
           </View>
         </LinearGradient>
 
-        {/* Spending Overview */}
+        {/* Active savings goals */}
+        <View style={styles.goalsSection}>
+          <SectionHeading
+            title="Savings Goals"
+            action="View all"
+            onAction={() => router.push('/budget')}
+          />
+
+          {activeGoals.length === 0 ? (
+            <Pressable
+              style={styles.goalEmptyCard}
+              onPress={() => router.push('/budget')}
+            >
+              <View style={styles.goalEmptyIcon}>
+                <Ionicons
+                  name="flag-outline"
+                  size={22}
+                  color="#6256F5"
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.goalCardTitle}>
+                  Start a savings goal
+                </Text>
+                <Text style={styles.goalCardSubtitle}>
+                  Give your next big plan a place to grow.
+                </Text>
+              </View>
+
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#8992A5"
+              />
+            </Pressable>
+          ) : (
+            activeGoals.slice(0, 3).map((goal) => {
+              const progress =
+                goal.target_amount > 0
+                  ? Math.min(
+                      100,
+                      (goal.saved_amount /
+                        goal.target_amount) *
+                        100
+                    )
+                  : 0;
+
+              return (
+                <Pressable
+                  key={goal.id}
+                  style={styles.goalCard}
+                  onPress={() => router.push('/budget')}
+                >
+                  <View style={styles.goalCardTop}>
+                    <View style={styles.goalCardIcon}>
+                      <Ionicons
+                        name="flag-outline"
+                        size={18}
+                        color="#6256F5"
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={styles.goalCardTitle}
+                        numberOfLines={1}
+                      >
+                        {goal.name}
+                      </Text>
+
+                      <Text style={styles.goalCardSubtitle}>
+                        {money(goal.saved_amount)} of{' '}
+                        {money(goal.target_amount)}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.goalPercent}>
+                      {Math.round(progress)}%
+                    </Text>
+                  </View>
+
+                  <View style={styles.goalTrack}>
+                    <View
+                      style={[
+                        styles.goalFill,
+                        { width: `${progress}%` },
+                      ]}
+                    />
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
+        </View>
+
+        {/* Completed savings goals */}
+        {completedGoals.length > 0 ? (
+          <View style={styles.completedSection}>
+            <SectionHeading
+              title="Goals Completed"
+              action="View all"
+              onAction={() => router.push('/budget')}
+            />
+
+            {completedGoals.slice(0, 3).map((goal) => (
+              <View
+                key={goal.id}
+                style={styles.completedGoalCard}
+              >
+                <View style={styles.completedGoalIcon}>
+                  <Ionicons
+                    name="trophy"
+                    size={19}
+                    color="#16A673"
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.goalCardTitle}>
+                    {goal.name}
+                  </Text>
+                  <Text style={styles.goalCardSubtitle}>
+                    You saved {money(goal.target_amount)}.
+                    Amazing work!
+                  </Text>
+                </View>
+
+                <Ionicons
+                  name="checkmark-circle"
+                  size={20}
+                  color="#16A673"
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* Spending overview */}
         <View style={styles.spendingSection}>
           <SectionHeading title="Spending Overview" />
 
           <View style={styles.chartHeader}>
-            <Text style={styles.chartPeriod}>Last 7 days</Text>
-
-            <View style={styles.periodSelector}>
-              <Text style={styles.periodText}>Last 7 days</Text>
-              <Ionicons
-                name="calendar-outline"
-                size={14}
-                color="#777D89"
-              />
-            </View>
+            <Text style={styles.periodText}>
+              Last 7 days
+            </Text>
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color="#777D89"
+            />
           </View>
 
           <View style={styles.chart}>
             <View style={styles.yAxis}>
-              {[1, 0.75, 0.5, 0.25, 0].map((fraction, index) => (
-                <Text key={index} style={styles.axisLabel}>
-                  {money(maximumChartAmount * fraction)}
-                </Text>
-              ))}
+              {[1, 0.75, 0.5, 0.25, 0].map(
+                (fraction, index) => (
+                  <Text
+                    key={index}
+                    style={styles.axisLabel}
+                  >
+                    {money(maxChart * fraction)}
+                  </Text>
+                )
+              )}
             </View>
 
             <View style={styles.chartContent}>
               <View style={styles.gridLines}>
                 {[0, 1, 2, 3, 4].map((line) => (
-                  <View key={line} style={styles.gridLine} />
+                  <View
+                    key={line}
+                    style={styles.gridLine}
+                  />
                 ))}
               </View>
 
@@ -459,7 +773,8 @@ export default function HomeScreen() {
                       style={[
                         styles.bar,
                         { height: item.height },
-                        item.amount === 0 && styles.emptyBar,
+                        item.amount === 0 &&
+                          styles.emptyBar,
                       ]}
                     />
                     <Text style={styles.dayLabel}>
@@ -472,19 +787,23 @@ export default function HomeScreen() {
           </View>
 
           {!loading &&
-          spendingData.every((item) => item.amount === 0) ? (
+          spendingData.every(
+            (item) => item.amount === 0
+          ) ? (
             <Text style={styles.noSpending}>
               No expenses recorded in the last 7 days.
             </Text>
           ) : null}
         </View>
 
-        {/* Recent Transactions */}
+        {/* Recent transactions */}
         <View style={styles.transactionsSection}>
           <SectionHeading
             title="Recent Transactions"
             action="Income History"
-            onAction={() => router.push('/income-history')}
+            onAction={() =>
+              router.push('/income-history')
+            }
           />
 
           <View style={styles.transactionsCard}>
@@ -504,7 +823,8 @@ export default function HomeScreen() {
                   No transactions yet
                 </Text>
                 <Text style={styles.emptySubtitle}>
-                  Your income and expense bills will appear here.
+                  Your income and expense bills will appear
+                  here.
                 </Text>
               </View>
             ) : (
@@ -537,7 +857,6 @@ export default function HomeScreen() {
                     >
                       {item.title}
                     </Text>
-
                     <Text style={styles.transactionSubtitle}>
                       {item.subtitle}
                     </Text>
@@ -561,6 +880,127 @@ export default function HomeScreen() {
 
         <View style={{ height: 25 }} />
       </ScrollView>
+
+      {/* Notifications popup */}
+      <Modal
+        visible={notificationsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          setNotificationsVisible(false)
+        }
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setNotificationsVisible(false)}
+        >
+          <Pressable
+            style={styles.notificationCard}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalTitleRow}>
+              <View>
+                <Text style={styles.modalTitle}>
+                  Notifications
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  Updates about your savings goals.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={() =>
+                  setNotificationsVisible(false)
+                }
+                style={styles.closeButton}
+              >
+                <Ionicons
+                  name="close"
+                  size={20}
+                  color="#17233D"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {notifications.length === 0 ? (
+              <View style={styles.noNotifications}>
+                <View style={styles.noNotificationIcon}>
+                  <Text style={styles.notificationCreature}>
+                    🐣
+                  </Text>
+                </View>
+
+                <Text style={styles.emptyTitle}>
+                  You're all caught up!
+                </Text>
+
+                <Text style={styles.emptySubtitle}>
+                  You have no new notifications. Your little
+                  money buddy is keeping watch!
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                style={{ maxHeight: 360 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {notifications.map((item) => (
+                  <View
+                    key={item.id}
+                    style={styles.notificationRow}
+                  >
+                    <View
+                      style={styles.notificationSuccessIcon}
+                    >
+                      <Ionicons
+                        name="trophy-outline"
+                        size={20}
+                        color="#16A673"
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notificationTitle}>
+                        {item.title}
+                      </Text>
+
+                      <Text
+                        style={styles.notificationMessage}
+                      >
+                        {item.message}
+                      </Text>
+
+                      <Text style={styles.notificationDate}>
+                        {new Date(
+                          item.created_at.replace(' ', 'T') +
+                            'Z'
+                        ).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              style={styles.doneButton}
+              onPress={() =>
+                setNotificationsVisible(false)
+              }
+            >
+              <Text style={styles.doneButtonText}>
+                DONE
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -587,8 +1027,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   notificationButton: {
-    padding: 5,
+    padding: 7,
     position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#E34D4D',
+    borderWidth: 1.5,
+    borderColor: '#F7F8FA',
   },
   balanceCard: {
     minHeight: 197,
@@ -678,11 +1129,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: -4,
-  },
-  chartPeriod: {
-    display: 'none',
-  },
-  periodSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -691,7 +1137,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 11,
     paddingVertical: 7,
-    backgroundColor: '#F7F8FA',
   },
   periodText: {
     fontSize: 11,
@@ -762,6 +1207,97 @@ const styles = StyleSheet.create({
     color: '#9296A0',
     marginTop: 5,
   },
+  goalsSection: {
+    marginTop: 25,
+  },
+  completedSection: {
+    marginTop: 23,
+  },
+  goalEmptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECF2',
+  },
+  goalEmptyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#F0ECFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E9ECF2',
+  },
+  goalCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  goalCardIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#F0ECFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goalCardTitle: {
+    color: '#17233D',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  goalCardSubtitle: {
+    color: '#8992A5',
+    fontSize: 10,
+    marginTop: 4,
+  },
+  goalPercent: {
+    color: '#6256F5',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  goalTrack: {
+    height: 7,
+    backgroundColor: '#F0F1F6',
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 13,
+  },
+  goalFill: {
+    height: '100%',
+    backgroundColor: '#6256F5',
+    borderRadius: 8,
+  },
+  completedGoalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    marginBottom: 9,
+    borderWidth: 1,
+    borderColor: '#DFF1E8',
+  },
+  completedGoalIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#E8F7F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   transactionsSection: {
     marginTop: 22,
   },
@@ -825,5 +1361,112 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 5,
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(10,15,30,0.48)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 22,
+  },
+  notificationCard: {
+    width: '100%',
+    maxWidth: 390,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
+    padding: 22,
+  },
+  modalHandle: {
+    width: 42,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: '#D9DCE3',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+  },
+  modalTitle: {
+    color: '#17233D',
+    fontSize: 21,
+    fontWeight: '800',
+  },
+  modalSubtitle: {
+    color: '#8992A5',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: '#F1F2F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noNotifications: {
+    alignItems: 'center',
+    paddingVertical: 22,
+  },
+  noNotificationIcon: {
+    width: 55,
+    height: 55,
+    borderRadius: 18,
+    backgroundColor: '#EFEDFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationCreature: {
+    fontSize: 31,
+  },
+  notificationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECEEF2',
+  },
+  notificationSuccessIcon: {
+    width: 39,
+    height: 39,
+    borderRadius: 13,
+    backgroundColor: '#E9F8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationTitle: {
+    color: '#17233D',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  notificationMessage: {
+    color: '#697386',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  notificationDate: {
+    color: '#A0A6B4',
+    fontSize: 10,
+    marginTop: 6,
+  },
+  doneButton: {
+    height: 47,
+    borderRadius: 13,
+    backgroundColor: '#6256F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  doneButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.7,
   },
 });
