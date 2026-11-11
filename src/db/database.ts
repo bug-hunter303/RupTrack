@@ -60,6 +60,44 @@ export async function initializeDatabase(
     );
   `);
 
+
+  // Monthly budget settings.
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS monthly_budgets (
+      month_key TEXT PRIMARY KEY,
+      savings_target REAL NOT NULL DEFAULT 0,
+      spending_limit REAL NOT NULL DEFAULT 0,
+      weekly_allowance REAL NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // User-created savings goals.
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS savings_goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      target_amount REAL NOT NULL,
+      saved_amount REAL NOT NULL DEFAULT 0,
+      target_date TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Records contributions made toward savings goals.
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS goal_contributions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      goal_id INTEGER NOT NULL,
+      amount REAL NOT NULL,
+      date TEXT NOT NULL,
+      FOREIGN KEY (goal_id)
+        REFERENCES savings_goals(id)
+        ON DELETE CASCADE
+    );
+  `);
+
+
   // Speed up date-based queries.
   await db.execAsync(`
     CREATE INDEX IF NOT EXISTS idx_bills_date
