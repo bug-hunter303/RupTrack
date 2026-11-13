@@ -5,6 +5,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -183,6 +184,13 @@ export default function HomeScreen() {
   >([]);
   const [loading, setLoading] = useState(true);
   const [balanceVisible, setBalanceVisible] = useState(true);
+
+  // Profile information
+  const [profileName, setProfileName] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(
+    null
+  );
+
   const [notificationsVisible, setNotificationsVisible] =
     useState(false);
 
@@ -190,6 +198,42 @@ export default function HomeScreen() {
     setLoading(true);
 
     try {
+      // Create profile table if it does not exist.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS user_profile (
+          id INTEGER PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL DEFAULT '',
+          photo_uri TEXT
+        );
+      `);
+
+      // Add photo_uri to an existing profile table if needed.
+      const profileColumns = await db.getAllAsync<{
+        name: string;
+      }>('PRAGMA table_info(user_profile)');
+
+      if (
+        !profileColumns.some(
+          (column) => column.name === 'photo_uri'
+        )
+      ) {
+        await db.execAsync(
+          'ALTER TABLE user_profile ADD COLUMN photo_uri TEXT'
+        );
+      }
+
+      // Load saved profile.
+      const savedProfile = await db.getFirstAsync<{
+        name: string;
+        photo_uri: string | null;
+      }>(
+        'SELECT name, photo_uri FROM user_profile WHERE id = 1'
+      );
+
+      setProfileName(savedProfile?.name ?? '');
+      setProfilePhoto(savedProfile?.photo_uri ?? null);
+
+      // Check monthly salary.
       const salary = await db.getFirstAsync<{
         amount: number;
         credit_day: number;
@@ -240,6 +284,7 @@ export default function HomeScreen() {
         }
       }
 
+      // Load income and expense bills.
       const incomeRows =
         await db.getAllAsync<IncomeEntry>(
           `SELECT id, description, amount, date, type
@@ -253,6 +298,7 @@ export default function HomeScreen() {
          ORDER BY id DESC`
       );
 
+      // Calculate totals.
       setTotalIncome(
         incomeRows.reduce(
           (sum, item) =>
@@ -269,6 +315,7 @@ export default function HomeScreen() {
         )
       );
 
+      // Combine transactions.
       const combined: Transaction[] = [
         ...incomeRows.map((entry) => ({
           id: `income-${entry.id}`,
@@ -315,6 +362,7 @@ export default function HomeScreen() {
 
       setTransactions(combined.slice(0, 5));
 
+      // Calculate last 7 days of spending.
       const today = new Date();
       const days: SpendingDay[] = [];
       const amounts: number[] = [];
@@ -388,6 +436,7 @@ export default function HomeScreen() {
           AND datetime(completed_at, '+7 days') <= datetime('now')
       `);
 
+      // Load notifications.
       const notificationRows =
         await db.getAllAsync<AppNotification>(
           `SELECT id, title, message, type, goal_id,
@@ -399,6 +448,7 @@ export default function HomeScreen() {
 
       setNotifications(notificationRows);
 
+      // Load savings goals.
       const goalRows = await db.getAllAsync<HomeGoal>(
         `SELECT id, name, target_amount, saved_amount,
                 target_date, is_completed, completed_at
@@ -427,6 +477,7 @@ export default function HomeScreen() {
     }
   }, [db]);
 
+  // Reload dashboard whenever Home screen becomes active.
   useFocusEffect(
     useCallback(() => {
       void loadDashboard();
@@ -468,6 +519,15 @@ export default function HomeScreen() {
 
   const hiddenMoney = 'Rs. ••••••';
 
+  const profileInitials = profileName.trim()
+    ? profileName
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join('')
+    : 'U';
+
   return (
     <SafeAreaView
       style={styles.safeArea}
@@ -479,6 +539,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>RupTrack</Text>
 
@@ -498,6 +559,40 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {/* Profile greeting */}
+        <Pressable
+          style={styles.profileGreeting}
+          onPress={() => router.push('/settings/profile')}
+        >
+          <View style={styles.profileGreetingText}>
+            <Text style={styles.profileEyebrow}>
+              WELCOME BACK
+            </Text>
+
+            <Text style={styles.profileGreetingTitle}>
+              Hello, {profileName.trim() || 'there'}!
+            </Text>
+
+            <Text style={styles.profileGreetingSubtitle}>
+              Here's your financial overview.
+            </Text>
+          </View>
+
+          {profilePhoto ? (
+            <Image
+              source={{ uri: profilePhoto }}
+              style={styles.homeProfileImage}
+            />
+          ) : (
+            <View style={styles.homeProfileAvatar}>
+              <Text style={styles.homeProfileInitials}>
+                {profileInitials}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+
+        {/* Balance card */}
         <LinearGradient
           colors={['#58B8FF', '#0870E9', '#0759D5']}
           start={{ x: 0, y: 0 }}
@@ -564,6 +659,7 @@ export default function HomeScreen() {
               <Text style={styles.detailLabel}>
                 Income
               </Text>
+
               <Text style={styles.detailAmount}>
                 {balanceVisible
                   ? money(totalIncome)
@@ -577,6 +673,7 @@ export default function HomeScreen() {
               <Text style={styles.detailLabel}>
                 Expenses
               </Text>
+
               <Text style={styles.detailAmount}>
                 {balanceVisible
                   ? money(totalExpenses)
@@ -611,6 +708,7 @@ export default function HomeScreen() {
                 <Text style={styles.goalCardTitle}>
                   Start a savings goal
                 </Text>
+
                 <Text style={styles.goalCardSubtitle}>
                   Give your next big plan a place to grow.
                 </Text>
@@ -708,6 +806,7 @@ export default function HomeScreen() {
                   <Text style={styles.goalCardTitle}>
                     {goal.name}
                   </Text>
+
                   <Text style={styles.goalCardSubtitle}>
                     You saved {money(goal.target_amount)}.
                     Amazing work!
@@ -732,6 +831,7 @@ export default function HomeScreen() {
             <Text style={styles.periodText}>
               Last 7 days
             </Text>
+
             <Ionicons
               name="calendar-outline"
               size={14}
@@ -777,6 +877,7 @@ export default function HomeScreen() {
                           styles.emptyBar,
                       ]}
                     />
+
                     <Text style={styles.dayLabel}>
                       {item.day}
                     </Text>
@@ -819,9 +920,11 @@ export default function HomeScreen() {
                   size={30}
                   color="#A0A6B4"
                 />
+
                 <Text style={styles.emptyTitle}>
                   No transactions yet
                 </Text>
+
                 <Text style={styles.emptySubtitle}>
                   Your income and expense bills will appear
                   here.
@@ -857,6 +960,7 @@ export default function HomeScreen() {
                     >
                       {item.title}
                     </Text>
+
                     <Text style={styles.transactionSubtitle}>
                       {item.subtitle}
                     </Text>
@@ -905,6 +1009,7 @@ export default function HomeScreen() {
                 <Text style={styles.modalTitle}>
                   Notifications
                 </Text>
+
                 <Text style={styles.modalSubtitle}>
                   Updates about your savings goals.
                 </Text>
@@ -1010,26 +1115,31 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F8FA',
   },
+
   scrollContent: {
     paddingHorizontal: 19,
     paddingBottom: 22,
   },
+
   header: {
     height: 61,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
   logo: {
     fontSize: 23,
     fontWeight: '800',
     color: '#151925',
     letterSpacing: -0.8,
   },
+
   notificationButton: {
     padding: 7,
     position: 'relative',
   },
+
   notificationDot: {
     position: 'absolute',
     top: 4,
@@ -1041,6 +1151,67 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#F7F8FA',
   },
+
+  profileGreeting: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#EDF0F5',
+  },
+
+  profileGreetingText: {
+    flex: 1,
+    paddingRight: 12,
+  },
+
+  profileEyebrow: {
+    color: '#8992A5',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    marginBottom: 4,
+  },
+
+  profileGreetingTitle: {
+    color: '#17233D',
+    fontSize: 19,
+    fontWeight: '800',
+  },
+
+  profileGreetingSubtitle: {
+    color: '#8992A5',
+    fontSize: 11,
+    marginTop: 3,
+  },
+
+  homeProfileAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#6256F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  homeProfileInitials: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '800',
+  },
+
+  homeProfileImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#E9ECF2',
+  },
+
   balanceCard: {
     minHeight: 197,
     borderRadius: 21,
@@ -1053,20 +1224,24 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 7,
   },
+
   balanceTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+
   balanceLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
   },
+
   balanceLabel: {
     color: '#EAF5FF',
     fontSize: 13,
   },
+
   cardArrow: {
     width: 33,
     height: 33,
@@ -1075,6 +1250,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   balanceAmount: {
     color: '#FFFFFF',
     fontSize: 34,
@@ -1082,49 +1258,59 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
     marginTop: 2,
   },
+
   balanceDetails: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 15,
   },
+
   balanceColumn: {
     flex: 1,
     gap: 7,
   },
+
   detailLabel: {
     color: '#D8EBFF',
     fontSize: 12,
   },
+
   detailAmount: {
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
   },
+
   verticalDivider: {
     width: 1,
     height: 40,
     backgroundColor: 'rgba(255,255,255,0.25)',
     marginRight: 28,
   },
+
   spendingSection: {
     marginTop: 31,
   },
+
   sectionHeading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 13,
   },
+
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#171B28',
   },
+
   actionText: {
     color: '#0877F9',
     fontSize: 12,
     fontWeight: '500',
   },
+
   chartHeader: {
     position: 'absolute',
     right: 0,
@@ -1138,30 +1324,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 7,
   },
+
   periodText: {
     fontSize: 11,
     color: '#747986',
   },
+
   chart: {
     height: 210,
     flexDirection: 'row',
     marginTop: 4,
   },
+
   yAxis: {
     width: 57,
     justifyContent: 'space-between',
     paddingBottom: 25,
     paddingTop: 1,
   },
+
   axisLabel: {
     fontSize: 8,
     color: '#8A8F99',
   },
+
   chartContent: {
     flex: 1,
     position: 'relative',
     justifyContent: 'flex-end',
   },
+
   gridLines: {
     position: 'absolute',
     left: 0,
@@ -1170,16 +1362,19 @@ const styles = StyleSheet.create({
     bottom: 25,
     justifyContent: 'space-between',
   },
+
   gridLine: {
     height: 1,
     backgroundColor: '#E9EBEF',
   },
+
   bars: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-around',
   },
+
   barColumn: {
     flex: 1,
     alignItems: 'center',
@@ -1187,6 +1382,7 @@ const styles = StyleSheet.create({
     height: '100%',
     gap: 7,
   },
+
   bar: {
     width: 18,
     maxHeight: 128,
@@ -1194,25 +1390,31 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     backgroundColor: '#1687F5',
   },
+
   emptyBar: {
     opacity: 0.25,
   },
+
   dayLabel: {
     fontSize: 10,
     color: '#858995',
     height: 17,
   },
+
   noSpending: {
     fontSize: 11,
     color: '#9296A0',
     marginTop: 5,
   },
+
   goalsSection: {
     marginTop: 25,
   },
+
   completedSection: {
     marginTop: 23,
   },
+
   goalEmptyCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -1223,6 +1425,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E9ECF2',
   },
+
   goalEmptyIcon: {
     width: 36,
     height: 36,
@@ -1231,6 +1434,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   goalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -1239,11 +1443,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E9ECF2',
   },
+
   goalCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+
   goalCardIcon: {
     width: 36,
     height: 36,
@@ -1252,21 +1458,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   goalCardTitle: {
     color: '#17233D',
     fontSize: 12,
     fontWeight: '800',
   },
+
   goalCardSubtitle: {
     color: '#8992A5',
     fontSize: 10,
     marginTop: 4,
   },
+
   goalPercent: {
     color: '#6256F5',
     fontSize: 12,
     fontWeight: '900',
   },
+
   goalTrack: {
     height: 7,
     backgroundColor: '#F0F1F6',
@@ -1274,11 +1484,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 13,
   },
+
   goalFill: {
     height: '100%',
     backgroundColor: '#6256F5',
     borderRadius: 8,
   },
+
   completedGoalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -1290,6 +1502,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#DFF1E8',
   },
+
   completedGoalIcon: {
     width: 36,
     height: 36,
@@ -1298,14 +1511,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   transactionsSection: {
     marginTop: 22,
   },
+
   transactionsCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 13,
     paddingHorizontal: 10,
   },
+
   transactionRow: {
     minHeight: 55,
     flexDirection: 'row',
@@ -1313,10 +1529,12 @@ const styles = StyleSheet.create({
     gap: 11,
     paddingVertical: 9,
   },
+
   transactionBorder: {
     borderBottomWidth: 1,
     borderBottomColor: '#ECEEF2',
   },
+
   transactionIcon: {
     width: 35,
     height: 35,
@@ -1324,44 +1542,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   transactionInfo: {
     flex: 1,
     gap: 4,
   },
+
   transactionTitle: {
     color: '#171B28',
     fontSize: 11,
     fontWeight: '600',
   },
+
   transactionSubtitle: {
     color: '#9296A0',
     fontSize: 10,
   },
+
   transactionAmount: {
     color: '#E34D4D',
     fontSize: 10,
     fontWeight: '700',
   },
+
   incomeAmount: {
     color: '#16A36A',
   },
+
   emptyTransactions: {
     alignItems: 'center',
     paddingVertical: 27,
     paddingHorizontal: 15,
   },
+
   emptyTitle: {
     color: '#171B28',
     fontSize: 13,
     fontWeight: '700',
     marginTop: 10,
   },
+
   emptySubtitle: {
-    color: '#9296A0',
+    color: '#9296A5',
     fontSize: 10,
     marginTop: 5,
     textAlign: 'center',
   },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(10,15,30,0.48)',
@@ -1369,6 +1596,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 22,
   },
+
   notificationCard: {
     width: '100%',
     maxWidth: 390,
@@ -1376,6 +1604,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     padding: 22,
   },
+
   modalHandle: {
     width: 42,
     height: 5,
@@ -1384,22 +1613,26 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 20,
   },
+
   modalTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 18,
   },
+
   modalTitle: {
     color: '#17233D',
     fontSize: 21,
     fontWeight: '800',
   },
+
   modalSubtitle: {
     color: '#8992A5',
     fontSize: 11,
     marginTop: 4,
   },
+
   closeButton: {
     width: 34,
     height: 34,
@@ -1408,10 +1641,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   noNotifications: {
     alignItems: 'center',
     paddingVertical: 22,
   },
+
   noNotificationIcon: {
     width: 55,
     height: 55,
@@ -1420,9 +1655,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   notificationCreature: {
     fontSize: 31,
   },
+
   notificationRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1431,6 +1668,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#ECEEF2',
   },
+
   notificationSuccessIcon: {
     width: 39,
     height: 39,
@@ -1439,22 +1677,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   notificationTitle: {
     color: '#17233D',
     fontSize: 13,
     fontWeight: '800',
   },
+
   notificationMessage: {
     color: '#697386',
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,
   },
+
   notificationDate: {
     color: '#A0A6B4',
     fontSize: 10,
     marginTop: 6,
   },
+
   doneButton: {
     height: 47,
     borderRadius: 13,
@@ -1463,6 +1705,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 18,
   },
+
   doneButtonText: {
     color: '#FFFFFF',
     fontSize: 12,

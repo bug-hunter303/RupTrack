@@ -1,4 +1,3 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -282,38 +281,5 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F0F1F5',
     marginLeft: 57,
-  },
-
-  footer: {
-    alignItems: 'center',
-    marginTop: 38,
-  },
-
-  footerLogo: {
-    width: 43,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: COLORS.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-
-  footerTitle: {
-    color: COLORS.navy,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-
-  footerSubtitle: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 4,
-  },
-
-  version: {
-    color: '#ADB4C1',
-    fontSize: 10,
-    marginTop: 12,
   },
 });
