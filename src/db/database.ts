@@ -104,6 +104,17 @@ export async function initializeDatabase(
       FOREIGN KEY (goal_id) REFERENCES savings_goals(id) ON DELETE SET NULL
     );
 
+    -- Notification preferences
+    CREATE TABLE IF NOT EXISTS notification_preferences (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      enabled INTEGER NOT NULL DEFAULT 1,
+      salary_credits INTEGER NOT NULL DEFAULT 1,
+      spending_alerts INTEGER NOT NULL DEFAULT 1,
+      budget_warnings INTEGER NOT NULL DEFAULT 1,
+      savings_reminders INTEGER NOT NULL DEFAULT 1,
+      daily_summary INTEGER NOT NULL DEFAULT 0
+    );
+
     -- Appearance and Home screen preferences
     CREATE TABLE IF NOT EXISTS app_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -137,6 +148,12 @@ export async function initializeDatabase(
   // Create default appearance settings without overwriting saved preferences.
   await db.runAsync(`
     INSERT OR IGNORE INTO app_settings (id)
+    VALUES (1)
+  `);
+
+  // Create default notification preferences without overwriting saved choices.
+  await db.runAsync(`
+    INSERT OR IGNORE INTO notification_preferences (id)
     VALUES (1)
   `);
 
