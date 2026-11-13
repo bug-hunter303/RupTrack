@@ -12,6 +12,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+
+import { useAppearance } from '@/context/appearance-context';
 
 type SavedBill = {
   id: number;
@@ -32,20 +35,21 @@ function formatDate(value: string) {
   });
 }
 
-function formatMoney(value: number) {
-  return `Rs. ${Number(value).toLocaleString('en-IN', {
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 export default function BillsScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
 
+  const { colors, accent, isDark, formatMoney } = useAppearance();
+  const styles = createStyles(colors, accent.primary, isDark);
+
   const [bills, setBills] = useState<SavedBill[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const loadBills = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+
     try {
       const result = await db.getAllAsync<SavedBill>(`
         SELECT
@@ -65,6 +69,7 @@ export default function BillsScreen() {
       setBills(result);
     } catch (error) {
       console.error('Could not load bills:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -72,19 +77,25 @@ export default function BillsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadBills();
+      void loadBills();
     }, [loadBills])
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={22} color="#172033" />
+            <Ionicons
+              name="arrow-back"
+              size={22}
+              color={colors.text}
+            />
           </Pressable>
 
           <View style={styles.headerText}>
@@ -95,18 +106,28 @@ export default function BillsScreen() {
           </View>
 
           <View style={styles.headerIcon}>
-            <Ionicons name="receipt-outline" size={23} color="#6256F5" />
+            <Ionicons
+              name="receipt-outline"
+              size={23}
+              color={accent.primary}
+            />
           </View>
         </View>
 
         <View style={styles.summary}>
           <View>
             <Text style={styles.summaryLabel}>TOTAL BILLS</Text>
-            <Text style={styles.summaryCount}>{bills.length}</Text>
+            <Text style={styles.summaryCount}>
+              {bills.length}
+            </Text>
           </View>
 
           <View style={styles.summaryIcon}>
-            <Ionicons name="documents-outline" size={25} color="#FFFFFF" />
+            <Ionicons
+              name="documents-outline"
+              size={25}
+              color="#FFFFFF"
+            />
           </View>
         </View>
 
@@ -118,20 +139,51 @@ export default function BillsScreen() {
         {loading ? (
           <ActivityIndicator
             size="large"
-            color="#6256F5"
-            style={{ marginTop: 45 }}
+            color={accent.primary}
+            style={styles.loader}
           />
+        ) : loadError ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={34}
+                color="#D65353"
+              />
+            </View>
+
+            <Text style={styles.emptyTitle}>
+              Couldn't load bills
+            </Text>
+
+            <Text style={styles.emptyDescription}>
+              Something went wrong while loading your saved expenses.
+              Please try again.
+            </Text>
+
+            <Pressable
+              style={styles.emptyButton}
+              onPress={loadBills}
+            >
+              <Text style={styles.emptyButtonText}>
+                TRY AGAIN
+              </Text>
+            </Pressable>
+          </View>
         ) : bills.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
               <Ionicons
                 name="receipt-outline"
                 size={34}
-                color="#6256F5"
+                color={accent.primary}
               />
             </View>
 
-            <Text style={styles.emptyTitle}>No bills yet</Text>
+            <Text style={styles.emptyTitle}>
+              No bills yet
+            </Text>
+
             <Text style={styles.emptyDescription}>
               Your saved expense bills will appear here.
               Create your first bill to get started.
@@ -141,7 +193,9 @@ export default function BillsScreen() {
               style={styles.emptyButton}
               onPress={() => router.back()}
             >
-              <Text style={styles.emptyButtonText}>BACK TO EXPENSE</Text>
+              <Text style={styles.emptyButtonText}>
+                BACK TO EXPENSE
+              </Text>
             </Pressable>
           </View>
         ) : (
@@ -164,12 +218,15 @@ export default function BillsScreen() {
                   <Ionicons
                     name="receipt-outline"
                     size={22}
-                    color="#6256F5"
+                    color={accent.primary}
                   />
                 </View>
 
                 <View style={styles.billInfo}>
-                  <Text style={styles.billName} numberOfLines={1}>
+                  <Text
+                    style={styles.billName}
+                    numberOfLines={1}
+                  >
                     {bill.name}
                   </Text>
 
@@ -193,7 +250,9 @@ export default function BillsScreen() {
                       }
                       size={11}
                       color={
-                        bill.is_locked === 1 ? '#16865B' : '#6256F5'
+                        bill.is_locked === 1
+                          ? '#16A673'
+                          : accent.primary
                       }
                     />
 
@@ -203,8 +262,8 @@ export default function BillsScreen() {
                         {
                           color:
                             bill.is_locked === 1
-                              ? '#16865B'
-                              : '#6256F5',
+                              ? '#16A673'
+                              : accent.primary,
                         },
                       ]}
                     >
@@ -217,10 +276,11 @@ export default function BillsScreen() {
                   <Text style={styles.billTotal}>
                     {formatMoney(bill.total)}
                   </Text>
+
                   <Ionicons
                     name="chevron-forward"
                     size={18}
-                    color="#A0A5B1"
+                    color={colors.muted}
                   />
                 </View>
               </Pressable>
@@ -232,195 +292,214 @@ export default function BillsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F7F8FA',
+function createStyles(
+  colors: {
+    background: string;
+    surface: string;
+    text: string;
+    muted: string;
+    border: string;
   },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    marginBottom: 25,
-  },
-  backButton: {
-    width: 43,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    color: '#172033',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  headerSubtitle: {
-    color: '#858B99',
-    fontSize: 12,
-    marginTop: 3,
-  },
-  headerIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summary: {
-    backgroundColor: '#172B50',
-    borderRadius: 20,
-    padding: 21,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  summaryLabel: {
-    color: '#B9C9E3',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  summaryCount: {
-    color: '#FFFFFF',
-    fontSize: 29,
-    fontWeight: '800',
-    marginTop: 5,
-  },
-  summaryIcon: {
-    width: 49,
-    height: 49,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  listHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  listTitle: {
-    color: '#172033',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  listSubtitle: {
-    color: '#858B99',
-    fontSize: 11,
-  },
-  billList: {
-    paddingBottom: 30,
-    gap: 12,
-  },
-  billCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  billIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 13,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  billInfo: {
-    flex: 1,
-  },
-  billName: {
-    color: '#172033',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  billMeta: {
-    color: '#858B99',
-    fontSize: 10,
-    marginTop: 5,
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginTop: 8,
-  },
-  lockedBadge: {
-    backgroundColor: '#E6F7EE',
-  },
-  editableBadge: {
-    backgroundColor: '#EFEDFF',
-  },
-  statusText: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  billRight: {
-    alignItems: 'flex-end',
-    gap: 9,
-  },
-  billTotal: {
-    color: '#172033',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 25,
-    paddingTop: 65,
-  },
-  emptyIcon: {
-    width: 75,
-    height: 75,
-    borderRadius: 24,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-  },
-  emptyTitle: {
-    color: '#172033',
-    fontSize: 19,
-    fontWeight: '800',
-  },
-  emptyDescription: {
-    color: '#858B99',
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 8,
-  },
-  emptyButton: {
-    backgroundColor: '#6256F5',
-    borderRadius: 13,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    marginTop: 22,
-  },
-  emptyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-});
+  primary: string,
+  isDark: boolean
+) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    container: {
+      flex: 1,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      marginBottom: 25,
+    },
+    backButton: {
+      width: 43,
+      height: 43,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerText: {
+      flex: 1,
+    },
+    headerTitle: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
+    headerSubtitle: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 3,
+    },
+    headerIcon: {
+      width: 43,
+      height: 43,
+      borderRadius: 14,
+      backgroundColor: isDark ? '#292442' : '#EFEDFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    summary: {
+      backgroundColor: isDark ? '#222C40' : '#172B50',
+      borderRadius: 20,
+      padding: 21,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 28,
+    },
+    summaryLabel: {
+      color: '#B9C9E3',
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1,
+    },
+    summaryCount: {
+      color: '#FFFFFF',
+      fontSize: 29,
+      fontWeight: '800',
+      marginTop: 5,
+    },
+    summaryIcon: {
+      width: 49,
+      height: 49,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255,255,255,0.14)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    listHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 14,
+    },
+    listTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    listSubtitle: {
+      color: colors.muted,
+      fontSize: 11,
+    },
+    loader: {
+      marginTop: 45,
+    },
+    billList: {
+      paddingBottom: 30,
+      gap: 12,
+    },
+    billCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 17,
+      padding: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    billIcon: {
+      width: 43,
+      height: 43,
+      borderRadius: 13,
+      backgroundColor: isDark ? '#292442' : '#EFEDFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    billInfo: {
+      flex: 1,
+    },
+    billName: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    billMeta: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 5,
+    },
+    statusBadge: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 7,
+      paddingVertical: 4,
+      borderRadius: 6,
+      marginTop: 8,
+    },
+    lockedBadge: {
+      backgroundColor: isDark ? '#18372E' : '#E6F7EE',
+    },
+    editableBadge: {
+      backgroundColor: isDark ? '#292442' : '#EFEDFF',
+    },
+    statusText: {
+      fontSize: 9,
+      fontWeight: '800',
+    },
+    billRight: {
+      alignItems: 'flex-end',
+      gap: 9,
+    },
+    billTotal: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    emptyState: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 25,
+      paddingTop: 65,
+    },
+    emptyIcon: {
+      width: 75,
+      height: 75,
+      borderRadius: 24,
+      backgroundColor: isDark ? '#292442' : '#EFEDFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
+    },
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 19,
+      fontWeight: '800',
+    },
+    emptyDescription: {
+      color: colors.muted,
+      fontSize: 12,
+      textAlign: 'center',
+      lineHeight: 19,
+      marginTop: 8,
+    },
+    emptyButton: {
+      backgroundColor: primary,
+      borderRadius: 13,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      marginTop: 22,
+    },
+    emptyButtonText: {
+      color: '#FFFFFF',
+      fontSize: 11,
+      fontWeight: '800',
+    },
+  });
+}

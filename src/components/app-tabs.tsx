@@ -10,6 +10,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState } from 'react';
 
+import { useAppearance } from '@/context/appearance-context';
+
 const NAV_ITEMS = [
   {
     name: '/',
@@ -42,6 +44,8 @@ function BottomNavigation() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const { colors, accent, isDark } = useAppearance();
+
   const [menuVisible, setMenuVisible] = useState(false);
 
   function openScreen(screen: 'income' | 'expense') {
@@ -58,7 +62,11 @@ function BottomNavigation() {
       <View
         style={[
           styles.tabBarWrapper,
-          { paddingBottom: Math.max(insets.bottom, 10) },
+          {
+            backgroundColor: colors.tabBar,
+            paddingBottom: Math.max(insets.bottom, 10),
+            shadowColor: isDark ? '#000000' : '#172033',
+          },
         ]}
       >
         <View style={styles.tabBar}>
@@ -77,13 +85,17 @@ function BottomNavigation() {
                 <Ionicons
                   name={focused ? item.activeIcon : item.icon}
                   size={23}
-                  color={focused ? '#1687FF' : '#858995'}
+                  color={focused ? accent.primary : colors.muted}
                 />
 
                 <Text
                   style={[
                     styles.tabLabel,
-                    focused && styles.activeLabel,
+                    { color: colors.muted },
+                    focused && {
+                      color: accent.primary,
+                      fontWeight: '600',
+                    },
                   ]}
                 >
                   {item.label}
@@ -95,7 +107,13 @@ function BottomNavigation() {
           <View style={styles.addSpacer} />
 
           <Pressable
-            style={styles.addButton}
+            style={[
+              styles.addButton,
+              {
+                backgroundColor: accent.primary,
+                shadowColor: accent.primary,
+              },
+            ]}
             onPress={() => setMenuVisible(true)}
           >
             <Ionicons name="add" size={29} color="#FFFFFF" />
@@ -113,13 +131,17 @@ function BottomNavigation() {
                 <Ionicons
                   name={focused ? item.activeIcon : item.icon}
                   size={23}
-                  color={focused ? '#1687FF' : '#858995'}
+                  color={focused ? accent.primary : colors.muted}
                 />
 
                 <Text
                   style={[
                     styles.tabLabel,
-                    focused && styles.activeLabel,
+                    { color: colors.muted },
+                    focused && {
+                      color: accent.primary,
+                      fontWeight: '600',
+                    },
                   ]}
                 >
                   {item.label}
@@ -142,27 +164,53 @@ function BottomNavigation() {
           onPress={() => setMenuVisible(false)}
         >
           <Pressable
-            style={styles.menuCard}
+            style={[
+              styles.menuCard,
+              { backgroundColor: colors.surface },
+            ]}
             onPress={(event) => event.stopPropagation()}
           >
-            <View style={styles.handle} />
+            <View
+              style={[
+                styles.handle,
+                { backgroundColor: colors.border },
+              ]}
+            />
 
-            <Text style={styles.menuTitle}>
+            <Text
+              style={[
+                styles.menuTitle,
+                { color: colors.text },
+              ]}
+            >
               Add to RupeeTrack
             </Text>
 
-            <Text style={styles.menuSubtitle}>
+            <Text
+              style={[
+                styles.menuSubtitle,
+                { color: colors.muted },
+              ]}
+            >
               What would you like to add?
             </Text>
 
+            {/* Add Income */}
             <Pressable
-              style={styles.option}
+              style={[
+                styles.option,
+                { backgroundColor: colors.input },
+              ]}
               onPress={() => openScreen('income')}
             >
               <View
                 style={[
                   styles.iconBox,
-                  { backgroundColor: '#E0F7EB' },
+                  {
+                    backgroundColor: isDark
+                      ? '#17382C'
+                      : '#E0F7EB',
+                  },
                 ]}
               >
                 <Ionicons
@@ -173,11 +221,21 @@ function BottomNavigation() {
               </View>
 
               <View style={styles.optionText}>
-                <Text style={styles.optionTitle}>
+                <Text
+                  style={[
+                    styles.optionTitle,
+                    { color: colors.text },
+                  ]}
+                >
                   Add Income
                 </Text>
 
-                <Text style={styles.optionDescription}>
+                <Text
+                  style={[
+                    styles.optionDescription,
+                    { color: colors.muted },
+                  ]}
+                >
                   Salary or extra money
                 </Text>
               </View>
@@ -185,18 +243,26 @@ function BottomNavigation() {
               <Ionicons
                 name="chevron-forward"
                 size={20}
-                color="#9296A0"
+                color={colors.muted}
               />
             </Pressable>
 
+            {/* Add Expense */}
             <Pressable
-              style={styles.option}
+              style={[
+                styles.option,
+                { backgroundColor: colors.input },
+              ]}
               onPress={() => openScreen('expense')}
             >
               <View
                 style={[
                   styles.iconBox,
-                  { backgroundColor: '#FCE8E8' },
+                  {
+                    backgroundColor: isDark
+                      ? '#3A2529'
+                      : '#FCE8E8',
+                  },
                 ]}
               >
                 <Ionicons
@@ -207,11 +273,21 @@ function BottomNavigation() {
               </View>
 
               <View style={styles.optionText}>
-                <Text style={styles.optionTitle}>
+                <Text
+                  style={[
+                    styles.optionTitle,
+                    { color: colors.text },
+                  ]}
+                >
                   Add Expense
                 </Text>
 
-                <Text style={styles.optionDescription}>
+                <Text
+                  style={[
+                    styles.optionDescription,
+                    { color: colors.muted },
+                  ]}
+                >
                   Create a bill and add your expenses
                 </Text>
               </View>
@@ -219,15 +295,21 @@ function BottomNavigation() {
               <Ionicons
                 name="chevron-forward"
                 size={20}
-                color="#9296A0"
+                color={colors.muted}
               />
             </Pressable>
 
+            {/* Cancel */}
             <Pressable
               style={styles.cancelButton}
               onPress={() => setMenuVisible(false)}
             >
-              <Text style={styles.cancelText}>
+              <Text
+                style={[
+                  styles.cancelText,
+                  { color: colors.muted },
+                ]}
+              >
                 Cancel
               </Text>
             </Pressable>
@@ -239,13 +321,15 @@ function BottomNavigation() {
 }
 
 export default function AppTabs() {
+  const { colors } = useAppearance();
+
   return (
     <Tabs
       tabBar={() => <BottomNavigation />}
       screenOptions={{
         headerShown: false,
         sceneStyle: {
-          backgroundColor: '#F7F8FA',
+          backgroundColor: colors.background,
         },
       }}
     >
@@ -259,10 +343,8 @@ export default function AppTabs() {
 
 const styles = StyleSheet.create({
   tabBarWrapper: {
-    backgroundColor: '#FFFFFF',
     paddingTop: 10,
     paddingHorizontal: 8,
-    shadowColor: '#172033',
     shadowOffset: {
       width: 0,
       height: -4,
@@ -293,12 +375,6 @@ const styles = StyleSheet.create({
 
   tabLabel: {
     fontSize: 10,
-    color: '#858995',
-  },
-
-  activeLabel: {
-    color: '#1687FF',
-    fontWeight: '600',
   },
 
   addButton: {
@@ -308,10 +384,8 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#6256F5',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#6256F5',
     shadowOffset: {
       width: 0,
       height: 5,
@@ -323,7 +397,7 @@ const styles = StyleSheet.create({
 
   modalBackground: {
     flex: 1,
-    backgroundColor: 'rgba(10, 15, 30, 0.45)',
+    backgroundColor: 'rgba(10, 15, 30, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -332,7 +406,6 @@ const styles = StyleSheet.create({
   menuCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 22,
     paddingTop: 24,
     paddingBottom: 18,
@@ -343,7 +416,6 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 5,
-    backgroundColor: '#D9DCE3',
     alignSelf: 'center',
     marginBottom: 22,
   },
@@ -351,18 +423,15 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 21,
     fontWeight: '700',
-    color: '#171B28',
   },
 
   menuSubtitle: {
     fontSize: 13,
-    color: '#858995',
     marginTop: 6,
     marginBottom: 20,
   },
 
   option: {
-    backgroundColor: '#F8F9FB',
     borderRadius: 15,
     padding: 15,
     flexDirection: 'row',
@@ -387,12 +456,10 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#171B28',
   },
 
   optionDescription: {
     fontSize: 12,
-    color: '#858995',
   },
 
   cancelButton: {
@@ -402,7 +469,6 @@ const styles = StyleSheet.create({
   },
 
   cancelText: {
-    color: '#777D89',
     fontSize: 14,
     fontWeight: '600',
   },

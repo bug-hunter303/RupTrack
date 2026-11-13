@@ -1,4 +1,3 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -300,7 +299,7 @@ export default function AppearanceScreen() {
                         },
                       ]}
                     >
-                      {item.label}
+                      {item.name}
                     </Text>
                   </Pressable>
                 );

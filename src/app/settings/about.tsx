@@ -1,3 +1,4 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,19 +10,13 @@ import {
   View,
 } from 'react-native';
 
-const COLORS = {
-  background: '#F5F6FA',
-  white: '#FFFFFF',
-  navy: '#17233D',
-  muted: '#8992A5',
-  purple: '#6256F5',
-  blue: '#2878E5',
-  green: '#16A673',
-  border: '#E9ECF2',
-};
+import { useAppearance } from '@/context/appearance-context';
 
 export default function AboutScreen() {
   const router = useRouter();
+
+  const { colors, accent, isDark } = useAppearance();
+  const styles = createStyles(colors, accent.primary, isDark);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -37,7 +32,7 @@ export default function AboutScreen() {
           <Ionicons
             name="arrow-back"
             size={21}
-            color={COLORS.navy}
+            color={colors.text}
           />
         </Pressable>
 
@@ -84,7 +79,7 @@ export default function AboutScreen() {
               <Ionicons
                 name="apps-outline"
                 size={20}
-                color={COLORS.purple}
+                color="#6256F5"
               />
             </View>
 
@@ -101,7 +96,7 @@ export default function AboutScreen() {
               <Ionicons
                 name="phone-portrait-outline"
                 size={20}
-                color={COLORS.blue}
+                color="#2878E5"
               />
             </View>
 
@@ -118,7 +113,7 @@ export default function AboutScreen() {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
-                color={COLORS.green}
+                color="#16A673"
               />
             </View>
 
@@ -164,232 +159,244 @@ export default function AboutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+function createStyles(
+  colors: {
+    background: string;
+    surface: string;
+    text: string;
+    muted: string;
+    border: string;
   },
+  primary: string,
+  isDark: boolean
+) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
-  },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 40,
+    },
 
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 24,
+    },
 
-  header: {
-    marginBottom: 25,
-  },
+    header: {
+      marginBottom: 25,
+    },
 
-  eyebrow: {
-    color: COLORS.purple,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
+    eyebrow: {
+      color: primary,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.5,
+      marginBottom: 6,
+    },
 
-  title: {
-    color: COLORS.navy,
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-  },
+    title: {
+      color: colors.text,
+      fontSize: 30,
+      fontWeight: '800',
+      letterSpacing: -0.6,
+    },
 
-  subtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 5,
-  },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 5,
+    },
 
-  introCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 22,
-    padding: 25,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 27,
-  },
+    introCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 22,
+      padding: 25,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 27,
+    },
 
-  logoContainer: {
-    width: 76,
-    height: 76,
-    borderRadius: 24,
-    backgroundColor: COLORS.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-    elevation: 4,
-    shadowColor: COLORS.purple,
-    shadowOpacity: 0.2,
-    shadowRadius: 9,
-    shadowOffset: { width: 0, height: 4 },
-  },
+    logoContainer: {
+      width: 76,
+      height: 76,
+      borderRadius: 24,
+      backgroundColor: primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 15,
+      elevation: 4,
+      shadowColor: primary,
+      shadowOpacity: 0.2,
+      shadowRadius: 9,
+      shadowOffset: { width: 0, height: 4 },
+    },
 
-  appName: {
-    color: COLORS.navy,
-    fontSize: 23,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
+    appName: {
+      color: colors.text,
+      fontSize: 23,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
 
-  tagline: {
-    color: COLORS.purple,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 5,
-  },
+    tagline: {
+      color: primary,
+      fontSize: 12,
+      fontWeight: '700',
+      marginTop: 5,
+    },
 
-  description: {
-    color: COLORS.muted,
-    fontSize: 12,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginTop: 17,
-  },
+    description: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 19,
+      textAlign: 'center',
+      marginTop: 17,
+    },
 
-  sectionLabel: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.3,
-    marginBottom: 11,
-    marginLeft: 3,
-  },
+    sectionLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.3,
+      marginBottom: 11,
+      marginLeft: 3,
+    },
 
-  infoCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+    infoCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      paddingHorizontal: 15,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 15,
-  },
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 15,
+    },
 
-  infoIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
+    infoIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      backgroundColor: isDark ? '#292442' : '#EFEDFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
 
-  infoIconBlue: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: '#E8F2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
+    infoIconBlue: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      backgroundColor: isDark ? '#1D304A' : '#E8F2FF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
 
-  infoIconGreen: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: '#E7F8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
+    infoIconGreen: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      backgroundColor: isDark ? '#18372E' : '#E7F8F0',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
 
-  infoText: {
-    flex: 1,
-  },
+    infoText: {
+      flex: 1,
+    },
 
-  infoTitle: {
-    color: COLORS.navy,
-    fontSize: 13,
-    fontWeight: '700',
-  },
+    infoTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
 
-  infoValue: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 4,
-  },
+    infoValue: {
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: 4,
+    },
 
-  separator: {
-    height: 1,
-    backgroundColor: '#F0F1F5',
-    marginLeft: 55,
-  },
+    separator: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginLeft: 55,
+    },
 
-  footer: {
-    alignItems: 'center',
-    marginTop: 45,
-    paddingHorizontal: 15,
-  },
+    footer: {
+      alignItems: 'center',
+      marginTop: 45,
+      paddingHorizontal: 15,
+    },
 
-  footerLogo: {
-    width: 55,
-    height: 55,
-    borderRadius: 18,
-    backgroundColor: COLORS.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
+    footerLogo: {
+      width: 55,
+      height: 55,
+      borderRadius: 18,
+      backgroundColor: primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
 
-  footerName: {
-    color: COLORS.navy,
-    fontSize: 19,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
+    footerName: {
+      color: colors.text,
+      fontSize: 19,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+    },
 
-  footerTagline: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 5,
-  },
+    footerTagline: {
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: 5,
+    },
 
-  footerDivider: {
-    width: '75%',
-    height: 1,
-    backgroundColor: '#DDE1EA',
-    marginTop: 23,
-    marginBottom: 17,
-  },
+    footerDivider: {
+      width: '75%',
+      height: 1,
+      backgroundColor: colors.border,
+      marginTop: 23,
+      marginBottom: 17,
+    },
 
-  versionLabel: {
-    color: COLORS.muted,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
+    versionLabel: {
+      color: colors.muted,
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 1.5,
+    },
 
-  version: {
-    color: COLORS.navy,
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 5,
-  },
+    version: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+      marginTop: 5,
+    },
 
-  copyright: {
-    color: '#AAB1BF',
-    fontSize: 10,
-    marginTop: 15,
-    textAlign: 'center',
-  },
-});
+    copyright: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 15,
+      textAlign: 'center',
+    },
+  });
+}

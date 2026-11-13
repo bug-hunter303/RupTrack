@@ -18,17 +18,7 @@ import {
   View,
 } from 'react-native';
 
-const COLORS = {
-  background: '#F5F6FA',
-  white: '#FFFFFF',
-  navy: '#17233D',
-  muted: '#8992A5',
-  purple: '#6256F5',
-  blue: '#2878E5',
-  green: '#16A673',
-  red: '#E35D6A',
-  border: '#E9ECF2',
-};
+import { useAppearance } from '@/context/appearance-context';
 
 type SalarySettingsData = {
   amount: number;
@@ -49,6 +39,9 @@ type PopupData = {
 export default function SalarySettingsScreen() {
   const router = useRouter();
   const db = useSQLiteContext();
+
+  const { colors, accent, isDark } = useAppearance();
+  const styles = createStyles(colors, accent.primary, isDark);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -199,7 +192,11 @@ export default function SalarySettingsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingScreen} edges={['top']}>
-        <ActivityIndicator size="large" color={COLORS.purple} />
+        <ActivityIndicator
+          size="large"
+          color={accent.primary}
+        />
+
         <Text style={styles.loadingText}>
           Loading salary settings...
         </Text>
@@ -226,14 +223,20 @@ export default function SalarySettingsScreen() {
             <Ionicons
               name="arrow-back"
               size={21}
-              color={COLORS.navy}
+              color={colors.text}
             />
           </Pressable>
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.eyebrow}>INCOME PREFERENCES</Text>
-            <Text style={styles.title}>Salary Settings</Text>
+            <Text style={styles.eyebrow}>
+              INCOME PREFERENCES
+            </Text>
+
+            <Text style={styles.title}>
+              Salary Settings
+            </Text>
+
             <Text style={styles.subtitle}>
               Manage your monthly salary and automatic credit.
             </Text>
@@ -250,7 +253,7 @@ export default function SalarySettingsScreen() {
                 <Ionicons
                   name="wallet-outline"
                   size={23}
-                  color={COLORS.purple}
+                  color={accent.primary}
                 />
               </View>
 
@@ -269,7 +272,7 @@ export default function SalarySettingsScreen() {
                   }
                   keyboardType="decimal-pad"
                   placeholder="0.00"
-                  placeholderTextColor="#B8BECA"
+                  placeholderTextColor={colors.muted}
                 />
               </View>
 
@@ -290,7 +293,7 @@ export default function SalarySettingsScreen() {
                 <Ionicons
                   name="calendar-outline"
                   size={22}
-                  color={COLORS.blue}
+                  color="#2878E5"
                 />
               </View>
 
@@ -339,7 +342,7 @@ export default function SalarySettingsScreen() {
                 <Ionicons
                   name="sync-outline"
                   size={22}
-                  color={COLORS.green}
+                  color="#16A673"
                 />
               </View>
 
@@ -358,10 +361,10 @@ export default function SalarySettingsScreen() {
                 value={enabled}
                 onValueChange={setEnabled}
                 trackColor={{
-                  false: '#D9DDE6',
-                  true: '#A9E5CE',
+                  false: colors.border,
+                  true: isDark ? '#285A48' : '#A9E5CE',
                 }}
-                thumbColor={enabled ? COLORS.green : '#FFFFFF'}
+                thumbColor={enabled ? '#16A673' : '#FFFFFF'}
               />
             </View>
           </View>
@@ -371,7 +374,7 @@ export default function SalarySettingsScreen() {
             <Ionicons
               name="information-circle-outline"
               size={21}
-              color={COLORS.blue}
+              color="#2878E5"
             />
 
             <Text style={styles.infoText}>
@@ -400,6 +403,7 @@ export default function SalarySettingsScreen() {
                   size={20}
                   color="#FFFFFF"
                 />
+
                 <Text style={styles.saveButtonText}>
                   SAVE SETTINGS
                 </Text>
@@ -436,8 +440,8 @@ export default function SalarySettingsScreen() {
                 size={35}
                 color={
                   popup.type === 'success'
-                    ? COLORS.green
-                    : COLORS.red
+                    ? '#16A673'
+                    : '#E35D6A'
                 }
               />
             </View>
@@ -469,341 +473,358 @@ export default function SalarySettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+function createStyles(
+  colors: {
+    background: string;
+    surface: string;
+    text: string;
+    muted: string;
+    border: string;
+    input: string;
   },
+  primary: string,
+  isDark: boolean
+) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  loadingScreen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    loadingScreen: {
+      flex: 1,
+      backgroundColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  loadingText: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 12,
-  },
+    loadingText: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 12,
+    },
 
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
-  },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 40,
+    },
 
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 24,
+    },
 
-  header: {
-    marginBottom: 27,
-  },
+    header: {
+      marginBottom: 27,
+    },
 
-  eyebrow: {
-    color: COLORS.purple,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
+    eyebrow: {
+      color: primary,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.5,
+      marginBottom: 6,
+    },
 
-  title: {
-    color: COLORS.navy,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
+    title: {
+      color: colors.text,
+      fontSize: 28,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
 
-  subtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 6,
-  },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 6,
+    },
 
-  section: {
-    marginBottom: 23,
-  },
+    section: {
+      marginBottom: 23,
+    },
 
-  sectionLabel: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 11,
-    marginLeft: 3,
-  },
+    sectionLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.2,
+      marginBottom: 11,
+      marginLeft: 3,
+    },
 
-  salaryCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 19,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+    salaryCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: 19,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  salaryIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
+    salaryIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      backgroundColor: isDark ? '#292442' : '#EFEDFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+    },
 
-  fieldLabel: {
-    color: COLORS.navy,
-    fontSize: 13,
-    fontWeight: '700',
-  },
+    fieldLabel: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+    },
 
-  amountInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#E9ECF2',
-    paddingBottom: 9,
-    marginTop: 9,
-  },
+    amountInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderBottomWidth: 1.5,
+      borderBottomColor: colors.border,
+      paddingBottom: 9,
+      marginTop: 9,
+    },
 
-  currency: {
-    color: COLORS.purple,
-    fontSize: 23,
-    fontWeight: '800',
-    marginRight: 10,
-  },
+    currency: {
+      color: primary,
+      fontSize: 23,
+      fontWeight: '800',
+      marginRight: 10,
+    },
 
-  amountInput: {
-    flex: 1,
-    color: COLORS.navy,
-    fontSize: 27,
-    fontWeight: '800',
-    paddingVertical: 3,
-  },
+    amountInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 27,
+      fontWeight: '800',
+      paddingVertical: 3,
+    },
 
-  helperText: {
-    color: COLORS.muted,
-    fontSize: 10,
-    lineHeight: 16,
-    marginTop: 6,
-  },
+    helperText: {
+      color: colors.muted,
+      fontSize: 10,
+      lineHeight: 16,
+      marginTop: 6,
+    },
 
-  creditCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+    creditCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
 
-  creditIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 13,
-    backgroundColor: '#E8F2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
+    creditIcon: {
+      width: 43,
+      height: 43,
+      borderRadius: 13,
+      backgroundColor: isDark ? '#1D304A' : '#E8F2FF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
 
-  creditInfo: {
-    flex: 1,
-  },
+    creditInfo: {
+      flex: 1,
+    },
 
-  dayInputContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F6FC',
-    borderRadius: 12,
-    width: 55,
-    height: 58,
-    marginLeft: 8,
-  },
+    dayInputContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.input,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      width: 55,
+      height: 58,
+      marginLeft: 8,
+    },
 
-  dayInput: {
-    color: COLORS.navy,
-    fontSize: 19,
-    fontWeight: '800',
-    textAlign: 'center',
-    width: '100%',
-    paddingVertical: 0,
-  },
+    dayInput: {
+      color: colors.text,
+      fontSize: 19,
+      fontWeight: '800',
+      textAlign: 'center',
+      width: '100%',
+      paddingVertical: 0,
+    },
 
-  daySuffix: {
-    color: COLORS.muted,
-    fontSize: 8,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginTop: 1,
-  },
+    daySuffix: {
+      color: colors.muted,
+      fontSize: 8,
+      fontWeight: '800',
+      letterSpacing: 1,
+      marginTop: 1,
+    },
 
-  note: {
-    color: COLORS.muted,
-    fontSize: 10,
-    lineHeight: 16,
-    marginTop: 9,
-    marginLeft: 3,
-  },
+    note: {
+      color: colors.muted,
+      fontSize: 10,
+      lineHeight: 16,
+      marginTop: 9,
+      marginLeft: 3,
+    },
 
-  toggleCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+    toggleCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 15,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
 
-  toggleIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 13,
-    backgroundColor: '#E7F8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
+    toggleIcon: {
+      width: 43,
+      height: 43,
+      borderRadius: 13,
+      backgroundColor: isDark ? '#18372E' : '#E7F8F0',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
 
-  toggleInfo: {
-    flex: 1,
-    paddingRight: 8,
-  },
+    toggleInfo: {
+      flex: 1,
+      paddingRight: 8,
+    },
 
-  infoCard: {
-    backgroundColor: '#EAF3FF',
-    borderRadius: 15,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 25,
-    gap: 9,
-  },
+    infoCard: {
+      backgroundColor: isDark ? '#1D304A' : '#EAF3FF',
+      borderRadius: 15,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 25,
+      gap: 9,
+    },
 
-  infoText: {
-    flex: 1,
-    color: '#526B8C',
-    fontSize: 10,
-    lineHeight: 16,
-  },
+    infoText: {
+      flex: 1,
+      color: isDark ? '#B5C9E5' : '#526B8C',
+      fontSize: 10,
+      lineHeight: 16,
+    },
 
-  saveButton: {
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: COLORS.purple,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-    elevation: 3,
-    shadowColor: COLORS.purple,
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
+    saveButton: {
+      height: 54,
+      borderRadius: 16,
+      backgroundColor: primary,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 9,
+      elevation: 3,
+      shadowColor: primary,
+      shadowOpacity: 0.18,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+    },
 
-  buttonPressed: {
-    opacity: 0.8,
-  },
+    buttonPressed: {
+      opacity: 0.8,
+    },
 
-  buttonDisabled: {
-    opacity: 0.7,
-  },
+    buttonDisabled: {
+      opacity: 0.7,
+    },
 
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
+    saveButtonText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 1,
+    },
 
-  // Custom popup
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.48)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-  },
+    // Custom popup
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(15, 23, 42, 0.58)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 28,
+    },
 
-  popupCard: {
-    width: '100%',
-    backgroundColor: COLORS.white,
-    borderRadius: 25,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 23,
-    alignItems: 'center',
-    elevation: 12,
-    shadowColor: '#000000',
-    shadowOpacity: 0.15,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-  },
+    popupCard: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: 25,
+      paddingHorizontal: 24,
+      paddingTop: 28,
+      paddingBottom: 23,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      elevation: 12,
+      shadowColor: '#000000',
+      shadowOpacity: 0.15,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+    },
 
-  popupIcon: {
-    width: 68,
-    height: 68,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 17,
-  },
+    popupIcon: {
+      width: 68,
+      height: 68,
+      borderRadius: 23,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 17,
+    },
 
-  successIcon: {
-    backgroundColor: '#E7F8F0',
-  },
+    successIcon: {
+      backgroundColor: isDark ? '#18372E' : '#E7F8F0',
+    },
 
-  errorIcon: {
-    backgroundColor: '#FDECEF',
-  },
+    errorIcon: {
+      backgroundColor: isDark ? '#40262D' : '#FDECEF',
+    },
 
-  popupTitle: {
-    color: COLORS.navy,
-    fontSize: 19,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
+    popupTitle: {
+      color: colors.text,
+      fontSize: 19,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
 
-  popupMessage: {
-    color: COLORS.muted,
-    fontSize: 12,
-    lineHeight: 19,
-    textAlign: 'center',
-    marginTop: 9,
-    marginBottom: 23,
-  },
+    popupMessage: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 19,
+      textAlign: 'center',
+      marginTop: 9,
+      marginBottom: 23,
+    },
 
-  popupButton: {
-    width: '100%',
-    height: 49,
-    borderRadius: 14,
-    backgroundColor: COLORS.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    popupButton: {
+      width: '100%',
+      height: 49,
+      borderRadius: 14,
+      backgroundColor: primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  errorButton: {
-    backgroundColor: COLORS.navy,
-  },
+    errorButton: {
+      backgroundColor: isDark ? '#343B4B' : '#17233D',
+    },
 
-  popupButtonText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-});
+    popupButtonText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 1,
+    },
+  });
+}

@@ -1,3 +1,4 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,18 +10,7 @@ import {
   View,
 } from 'react-native';
 
-const COLORS = {
-  background: '#F5F6FA',
-  white: '#FFFFFF',
-  navy: '#17233D',
-  muted: '#8992A5',
-  purple: '#6256F5',
-  blue: '#2878E5',
-  green: '#16A673',
-  orange: '#E49A35',
-  red: '#DB6373',
-  border: '#E9ECF2',
-};
+import { useAppearance } from '@/context/appearance-context';
 
 type SettingsItem = {
   title: string;
@@ -31,67 +21,71 @@ type SettingsItem = {
   route: string;
 };
 
-const SETTINGS_ITEMS: SettingsItem[] = [
-  {
-    title: 'Profile',
-    subtitle: 'Manage your personal information',
-    icon: 'person-outline',
-    color: COLORS.purple,
-    background: '#EFEDFF',
-    route: '/settings/profile',
-  },
-  {
-    title: 'Salary Settings',
-    subtitle: 'Manage your monthly salary and credit date',
-    icon: 'wallet-outline',
-    color: COLORS.blue,
-    background: '#E8F2FF',
-    route: '/settings/salary',
-  },
-  {
-    title: 'Appearance',
-    subtitle: 'Customize how RupeeTrack looks',
-    icon: 'color-palette-outline',
-    color: COLORS.orange,
-    background: '#FFF2E2',
-    route: '/settings/appearance',
-  },
-  {
-    title: 'Notifications',
-    subtitle: 'Manage reminders and notifications',
-    icon: 'notifications-outline',
-    color: COLORS.green,
-    background: '#E7F8F0',
-    route: '/settings/notifications',
-  },
-  {
-    title: 'Data Management',
-    subtitle: 'Export, backup, and manage your data',
-    icon: 'server-outline',
-    color: COLORS.red,
-    background: '#FDECEF',
-    route: '/settings/data-management',
-  },
-  {
-    title: 'Security',
-    subtitle: 'Protect your app and financial data',
-    icon: 'shield-checkmark-outline',
-    color: COLORS.purple,
-    background: '#F0EDFF',
-    route: '/settings/security',
-  },
-  {
-    title: 'About RupeeTrack',
-    subtitle: 'App information and version details',
-    icon: 'information-circle-outline',
-    color: '#66758A',
-    background: '#EDF1F6',
-    route: '/settings/about',
-  },
-];
-
 export default function SettingsScreen() {
   const router = useRouter();
+
+  const { colors, accent, isDark } = useAppearance();
+
+  const styles = createStyles(colors, accent.primary, isDark);
+
+  const SETTINGS_ITEMS: SettingsItem[] = [
+    {
+      title: 'Profile',
+      subtitle: 'Manage your personal information',
+      icon: 'person-outline',
+      color: '#6256F5',
+      background: isDark ? '#292442' : '#EFEDFF',
+      route: '/settings/profile',
+    },
+    {
+      title: 'Salary Settings',
+      subtitle: 'Manage your monthly salary and credit date',
+      icon: 'wallet-outline',
+      color: '#2878E5',
+      background: isDark ? '#1D304A' : '#E8F2FF',
+      route: '/settings/salary',
+    },
+    {
+      title: 'Appearance',
+      subtitle: 'Customize how RupeeTrack looks',
+      icon: 'color-palette-outline',
+      color: '#E49A35',
+      background: isDark ? '#3B3021' : '#FFF2E2',
+      route: '/settings/appearance',
+    },
+    {
+      title: 'Notifications',
+      subtitle: 'Manage reminders and notifications',
+      icon: 'notifications-outline',
+      color: '#16A673',
+      background: isDark ? '#18372E' : '#E7F8F0',
+      route: '/settings/notifications',
+    },
+    {
+      title: 'Data Management',
+      subtitle: 'Export, backup, and manage your data',
+      icon: 'server-outline',
+      color: '#DB6373',
+      background: isDark ? '#40262D' : '#FDECEF',
+      route: '/settings/data-management',
+    },
+    {
+      title: 'Security',
+      subtitle: 'Protect your app and financial data',
+      icon: 'shield-checkmark-outline',
+      color: '#8B7FF7',
+      background: isDark ? '#292442' : '#F0EDFF',
+      route: '/settings/security',
+    },
+    {
+      title: 'About RupeeTrack',
+      subtitle: 'App information and version details',
+      icon: 'information-circle-outline',
+      color: '#8291A7',
+      background: isDark ? '#293241' : '#EDF1F6',
+      route: '/settings/about',
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -102,8 +96,14 @@ export default function SettingsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerText}>
-            <Text style={styles.eyebrow}>PERSONALIZE YOUR APP</Text>
-            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.eyebrow}>
+              PERSONALIZE YOUR APP
+            </Text>
+
+            <Text style={styles.title}>
+              Settings
+            </Text>
+
             <Text style={styles.subtitle}>
               Manage your account and preferences.
             </Text>
@@ -113,13 +113,15 @@ export default function SettingsScreen() {
             <Ionicons
               name="settings-outline"
               size={24}
-              color={COLORS.purple}
+              color={accent.primary}
             />
           </View>
         </View>
 
         {/* Settings section */}
-        <Text style={styles.sectionTitle}>PREFERENCES</Text>
+        <Text style={styles.sectionTitle}>
+          PREFERENCES
+        </Text>
 
         <View style={styles.settingsCard}>
           {SETTINGS_ITEMS.map((item, index) => (
@@ -145,7 +147,10 @@ export default function SettingsScreen() {
                 </View>
 
                 <View style={styles.itemText}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
+                  <Text style={styles.itemTitle}>
+                    {item.title}
+                  </Text>
+
                   <Text style={styles.itemSubtitle}>
                     {item.subtitle}
                   </Text>
@@ -154,7 +159,7 @@ export default function SettingsScreen() {
                 <Ionicons
                   name="chevron-forward"
                   size={19}
-                  color="#AAB1BF"
+                  color={colors.muted}
                 />
               </Pressable>
 
@@ -169,117 +174,129 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+function createStyles(
+  colors: {
+    background: string;
+    surface: string;
+    text: string;
+    muted: string;
+    border: string;
   },
+  primary: string,
+  isDark: boolean
+) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 35,
-  },
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 35,
+    },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 30,
-  },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 30,
+    },
 
-  headerText: {
-    flex: 1,
-  },
+    headerText: {
+      flex: 1,
+    },
 
-  eyebrow: {
-    color: COLORS.purple,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
+    eyebrow: {
+      color: primary,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.5,
+      marginBottom: 6,
+    },
 
-  title: {
-    color: COLORS.navy,
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-  },
+    title: {
+      color: colors.text,
+      fontSize: 30,
+      fontWeight: '800',
+      letterSpacing: -0.6,
+    },
 
-  subtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
-    marginTop: 5,
-  },
+    subtitle: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 5,
+    },
 
-  headerIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 15,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
+    headerIcon: {
+      width: 46,
+      height: 46,
+      borderRadius: 15,
+      backgroundColor: isDark ? '#292442' : '#EFEDFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 12,
+    },
 
-  sectionTitle: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.3,
-    marginBottom: 12,
-    marginLeft: 3,
-  },
+    sectionTitle: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.3,
+      marginBottom: 12,
+      marginLeft: 3,
+    },
 
-  settingsCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+    settingsCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      paddingHorizontal: 15,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  settingsItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
+    settingsItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 16,
+    },
 
-  itemPressed: {
-    opacity: 0.65,
-  },
+    itemPressed: {
+      opacity: 0.65,
+    },
 
-  itemIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
+    itemIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
 
-  itemText: {
-    flex: 1,
-    paddingRight: 8,
-  },
+    itemText: {
+      flex: 1,
+      paddingRight: 8,
+    },
 
-  itemTitle: {
-    color: COLORS.navy,
-    fontSize: 14,
-    fontWeight: '700',
-  },
+    itemTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
 
-  itemSubtitle: {
-    color: COLORS.muted,
-    fontSize: 10,
-    marginTop: 4,
-    lineHeight: 15,
-  },
+    itemSubtitle: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 4,
+      lineHeight: 15,
+    },
 
-  separator: {
-    height: 1,
-    backgroundColor: '#F0F1F5',
-    marginLeft: 57,
-  },
-});
+    separator: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginLeft: 57,
+    },
+  });
+}

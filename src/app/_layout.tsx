@@ -1,3 +1,4 @@
+
 import {
   DarkTheme,
   DefaultTheme,
@@ -5,8 +6,9 @@ import {
   Stack,
 } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import * as SystemUI from 'expo-system-ui';
 import { SQLiteProvider } from 'expo-sqlite';
+import { useEffect } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { initializeDatabase } from '@/db/database';
@@ -18,30 +20,61 @@ import {
 SplashScreen.preventAutoHideAsync();
 
 function AppNavigation() {
-  const { isDark } = useAppearance();
+  const { isDark, colors } = useAppearance();
+
+  // Keep the native root background synchronized with
+  // RupeeTrack's selected appearance.
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(colors.background).catch(
+      (error) => {
+        console.warn('Could not update native background:', error);
+      }
+    );
+  }, [colors.background]);
+
+  const baseTheme = isDark ? DarkTheme : DefaultTheme;
+
+  const navigationTheme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      background: colors.background,
+      card: colors.background,
+      border: colors.border,
+      text: colors.text,
+    },
+  };
 
   return (
-    <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={navigationTheme}>
       <AnimatedSplashOverlay />
 
       <Stack
         screenOptions={{
           headerShown: false,
+          contentStyle: {
+            backgroundColor: colors.background,
+          },
+          animation: 'none',
         }}
       >
         <Stack.Screen name="(tabs)" />
+
         <Stack.Screen
           name="income"
           options={{ presentation: 'card' }}
         />
+
         <Stack.Screen
           name="expense"
           options={{ presentation: 'card' }}
         />
+
         <Stack.Screen
           name="bills"
           options={{ presentation: 'card' }}
         />
+
         <Stack.Screen
           name="income-history"
           options={{ presentation: 'card' }}

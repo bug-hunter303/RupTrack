@@ -1,16 +1,33 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import Animated, { Easing, Keyframe } from 'react-native-reanimated';
+import { useEffect, useState } from 'react';
+import {
+  Dimensions,
+  StyleSheet,
+  View,
+} from 'react-native';
+import Animated, {
+  Easing,
+  Keyframe,
+} from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+
+import { useAppearance } from '@/context/appearance-context';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 
 export function AnimatedSplashOverlay() {
+  const { colors } = useAppearance();
+
   const [animate, setAnimate] = useState(false);
   const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    SplashScreen.hideAsync().finally(() => {
+      setAnimate(true);
+    });
+  }, []);
 
   if (!visible) return null;
 
@@ -33,27 +50,44 @@ export function AnimatedSplashOverlay() {
     },
   });
 
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = (
+    <Image
+      style={styles.image}
+      source={require('@/assets/images/expo-logo.png')}
+    />
+  );
 
   return animate ? (
     <Animated.View
-      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
-        'worklet';
-        if (finished) {
-          scheduleOnRN(setVisible, false);
-        }
-      })}
-      style={styles.splashOverlay}>
+      pointerEvents="none"
+      entering={splashKeyframe
+        .duration(DURATION)
+        .withCallback((finished) => {
+          'worklet';
+
+          if (finished) {
+            scheduleOnRN(setVisible, false);
+          }
+        })}
+      style={[
+        styles.splashOverlay,
+        {
+          backgroundColor: colors.background,
+        },
+      ]}
+    >
       {image}
     </Animated.View>
   ) : (
     <View
-      onLayout={() => {
-        SplashScreen.hideAsync().finally(() => {
-          setAnimate(true);
-        });
-      }}
-      style={styles.splashOverlay}>
+      pointerEvents="none"
+      style={[
+        styles.splashOverlay,
+        {
+          backgroundColor: colors.background,
+        },
+      ]}
+    >
       {image}
     </View>
   );
@@ -98,13 +132,29 @@ const glowKeyframe = new Keyframe({
 export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
-      <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
+      <Animated.View
+        entering={glowKeyframe.duration(60 * 1000 * 4)}
+        style={styles.glow}
+      >
+        <Image
+          style={styles.glow}
+          source={require('@/assets/images/logo-glow.png')}
+        />
       </Animated.View>
 
-      <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
-      <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+      <Animated.View
+        entering={keyframe.duration(DURATION)}
+        style={styles.background}
+      />
+
+      <Animated.View
+        style={styles.imageContainer}
+        entering={logoKeyframe.duration(DURATION)}
+      >
+        <Image
+          style={styles.image}
+          source={require('@/assets/images/expo-logo.png')}
+        />
       </Animated.View>
     </View>
   );
@@ -133,14 +183,14 @@ const styles = StyleSheet.create({
   },
   background: {
     borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, #3C9FFE, #0274DF)`,
+    experimental_backgroundImage:
+      'linear-gradient(180deg, #3C9FFE, #0274DF)',
     width: 128,
     height: 128,
     position: 'absolute',
   },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,

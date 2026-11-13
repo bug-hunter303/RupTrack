@@ -1,3 +1,4 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -16,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useAppearance } from '@/context/appearance-context';
 
 type Bill = {
   id: number;
@@ -69,12 +71,6 @@ type AppNotification = {
   is_read: number;
 };
 
-function money(amount: number) {
-  return `Rs. ${amount.toLocaleString('en-IN', {
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 function parseStoredDate(value: string): Date {
   if (!value) return new Date(0);
 
@@ -94,18 +90,8 @@ function parseStoredDate(value: string): Date {
 
   if (display) {
     const months = [
-      'jan',
-      'feb',
-      'mar',
-      'apr',
-      'may',
-      'jun',
-      'jul',
-      'aug',
-      'sep',
-      'oct',
-      'nov',
-      'dec',
+      'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+      'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
     ];
 
     const month = months.indexOf(
@@ -148,6 +134,9 @@ function SectionHeading({
   action?: string;
   onAction?: () => void;
 }) {
+  const { colors, accent } = useAppearance();
+  const styles = createStyles(colors, accent);
+
   return (
     <View style={styles.sectionHeading}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -165,34 +154,26 @@ export default function HomeScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
 
+  const { colors, accent, isDark, formatMoney } = useAppearance();
+  const styles = createStyles(colors, accent);
+
+  const money = formatMoney;
+
   const [totalIncome, setTotalIncome] = useState(0);
   const [totalExpenses, setTotalExpenses] = useState(0);
-  const [transactions, setTransactions] = useState<
-    Transaction[]
-  >([]);
-  const [spendingData, setSpendingData] = useState<
-    SpendingDay[]
-  >([]);
-  const [notifications, setNotifications] = useState<
-    AppNotification[]
-  >([]);
-  const [activeGoals, setActiveGoals] = useState<HomeGoal[]>(
-    []
-  );
-  const [completedGoals, setCompletedGoals] = useState<
-    HomeGoal[]
-  >([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [spendingData, setSpendingData] = useState<SpendingDay[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [activeGoals, setActiveGoals] = useState<HomeGoal[]>([]);
+  const [completedGoals, setCompletedGoals] = useState<HomeGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [balanceVisible, setBalanceVisible] = useState(true);
 
   // Profile information
   const [profileName, setProfileName] = useState('');
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(
-    null
-  );
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
-  const [notificationsVisible, setNotificationsVisible] =
-    useState(false);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -212,11 +193,7 @@ export default function HomeScreen() {
         name: string;
       }>('PRAGMA table_info(user_profile)');
 
-      if (
-        !profileColumns.some(
-          (column) => column.name === 'photo_uri'
-        )
-      ) {
+      if (!profileColumns.some((column) => column.name === 'photo_uri')) {
         await db.execAsync(
           'ALTER TABLE user_profile ADD COLUMN photo_uri TEXT'
         );
@@ -253,9 +230,7 @@ export default function HomeScreen() {
 
         if (today.getDate() >= salary.credit_day) {
           const year = today.getFullYear();
-          const month = String(
-            today.getMonth() + 1
-          ).padStart(2, '0');
+          const month = String(today.getMonth() + 1).padStart(2, '0');
 
           const lastDay = new Date(
             year,
@@ -285,12 +260,11 @@ export default function HomeScreen() {
       }
 
       // Load income and expense bills.
-      const incomeRows =
-        await db.getAllAsync<IncomeEntry>(
-          `SELECT id, description, amount, date, type
-           FROM income
-           ORDER BY id DESC`
-        );
+      const incomeRows = await db.getAllAsync<IncomeEntry>(
+        `SELECT id, description, amount, date, type
+         FROM income
+         ORDER BY id DESC`
+      );
 
       const billRows = await db.getAllAsync<Bill>(
         `SELECT id, name, date, total
@@ -301,16 +275,14 @@ export default function HomeScreen() {
       // Calculate totals.
       setTotalIncome(
         incomeRows.reduce(
-          (sum, item) =>
-            sum + Number(item.amount || 0),
+          (sum, item) => sum + Number(item.amount || 0),
           0
         )
       );
 
       setTotalExpenses(
         billRows.reduce(
-          (sum, item) =>
-            sum + Number(item.total || 0),
+          (sum, item) => sum + Number(item.total || 0),
           0
         )
       );
@@ -333,24 +305,18 @@ export default function HomeScreen() {
               : 'cash-outline'
           ) as keyof typeof Ionicons.glyphMap,
           color: '#16A673',
-          sortDate: parseStoredDate(
-            entry.date
-          ).getTime(),
+          sortDate: parseStoredDate(entry.date).getTime(),
         })),
 
         ...billRows.map((bill) => ({
           id: `bill-${bill.id}`,
           title: bill.name,
-          subtitle: `Expense bill · ${formatShortDate(
-            bill.date
-          )}`,
+          subtitle: `Expense bill · ${formatShortDate(bill.date)}`,
           amount: Number(bill.total || 0),
           type: 'expense' as const,
           icon: 'receipt-outline' as keyof typeof Ionicons.glyphMap,
           color: '#E34D4D',
-          sortDate: parseStoredDate(
-            bill.date
-          ).getTime(),
+          sortDate: parseStoredDate(bill.date).getTime(),
         })),
       ];
 
@@ -374,21 +340,18 @@ export default function HomeScreen() {
           today.getDate() - offset
         );
 
-        const amount = billRows.reduce(
-          (sum, bill) => {
-            const billDate = parseStoredDate(bill.date);
+        const amount = billRows.reduce((sum, bill) => {
+          const billDate = parseStoredDate(bill.date);
 
-            return (
-              billDate.getTime() &&
-              billDate.getFullYear() === date.getFullYear() &&
-              billDate.getMonth() === date.getMonth() &&
-              billDate.getDate() === date.getDate()
-            )
-              ? sum + Number(bill.total || 0)
-              : sum;
-          },
-          0
-        );
+          return (
+            billDate.getTime() &&
+            billDate.getFullYear() === date.getFullYear() &&
+            billDate.getMonth() === date.getMonth() &&
+            billDate.getDate() === date.getDate()
+          )
+            ? sum + Number(bill.total || 0)
+            : sum;
+        }, 0);
 
         amounts.push(amount);
 
@@ -409,10 +372,7 @@ export default function HomeScreen() {
           height:
             item.amount === 0
               ? 4
-              : Math.max(
-                  8,
-                  (item.amount / maxAmount) * 125
-                ),
+              : Math.max(8, (item.amount / maxAmount) * 125),
         }))
       );
 
@@ -457,21 +417,14 @@ export default function HomeScreen() {
       );
 
       setActiveGoals(
-        goalRows.filter(
-          (goal) => goal.is_completed !== 1
-        )
+        goalRows.filter((goal) => goal.is_completed !== 1)
       );
 
       setCompletedGoals(
-        goalRows.filter(
-          (goal) => goal.is_completed === 1
-        )
+        goalRows.filter((goal) => goal.is_completed === 1)
       );
     } catch (error) {
-      console.error(
-        'Dashboard loading error:',
-        error
-      );
+      console.error('Dashboard loading error:', error);
     } finally {
       setLoading(false);
     }
@@ -517,7 +470,7 @@ export default function HomeScreen() {
     (item) => item.is_read === 0
   ).length;
 
-  const hiddenMoney = 'Rs. ••••••';
+  const hiddenMoney = `${money(0).replace(/[\d.,]/g, '').trim()} ••••••`;
 
   const profileInitials = profileName.trim()
     ? profileName
@@ -533,7 +486,7 @@ export default function HomeScreen() {
       style={styles.safeArea}
       edges={['top']}
     >
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -550,7 +503,7 @@ export default function HomeScreen() {
             <Ionicons
               name="notifications-outline"
               size={23}
-              color="#777D89"
+              color={colors.muted}
             />
 
             {unreadCount > 0 ? (
@@ -606,9 +559,7 @@ export default function HomeScreen() {
               </Text>
 
               <Pressable
-                onPress={() =>
-                  setBalanceVisible((value) => !value)
-                }
+                onPress={() => setBalanceVisible((value) => !value)}
                 hitSlop={10}
               >
                 <Ionicons
@@ -625,9 +576,7 @@ export default function HomeScreen() {
 
             <Pressable
               style={styles.cardArrow}
-              onPress={() =>
-                router.push('/income-history')
-              }
+              onPress={() => router.push('/income-history')}
             >
               <Ionicons
                 name="chevron-forward"
@@ -648,36 +597,26 @@ export default function HomeScreen() {
             />
           ) : (
             <Text style={styles.balanceAmount}>
-              {balanceVisible
-                ? money(balance)
-                : hiddenMoney}
+              {balanceVisible ? money(balance) : hiddenMoney}
             </Text>
           )}
 
           <View style={styles.balanceDetails}>
             <View style={styles.balanceColumn}>
-              <Text style={styles.detailLabel}>
-                Income
-              </Text>
+              <Text style={styles.detailLabel}>Income</Text>
 
               <Text style={styles.detailAmount}>
-                {balanceVisible
-                  ? money(totalIncome)
-                  : hiddenMoney}
+                {balanceVisible ? money(totalIncome) : hiddenMoney}
               </Text>
             </View>
 
             <View style={styles.verticalDivider} />
 
             <View style={styles.balanceColumn}>
-              <Text style={styles.detailLabel}>
-                Expenses
-              </Text>
+              <Text style={styles.detailLabel}>Expenses</Text>
 
               <Text style={styles.detailAmount}>
-                {balanceVisible
-                  ? money(totalExpenses)
-                  : hiddenMoney}
+                {balanceVisible ? money(totalExpenses) : hiddenMoney}
               </Text>
             </View>
           </View>
@@ -700,7 +639,7 @@ export default function HomeScreen() {
                 <Ionicons
                   name="flag-outline"
                   size={22}
-                  color="#6256F5"
+                  color={accent.primary}
                 />
               </View>
 
@@ -717,7 +656,7 @@ export default function HomeScreen() {
               <Ionicons
                 name="chevron-forward"
                 size={18}
-                color="#8992A5"
+                color={colors.muted}
               />
             </Pressable>
           ) : (
@@ -726,9 +665,7 @@ export default function HomeScreen() {
                 goal.target_amount > 0
                   ? Math.min(
                       100,
-                      (goal.saved_amount /
-                        goal.target_amount) *
-                        100
+                      (goal.saved_amount / goal.target_amount) * 100
                     )
                   : 0;
 
@@ -743,7 +680,7 @@ export default function HomeScreen() {
                       <Ionicons
                         name="flag-outline"
                         size={18}
-                        color="#6256F5"
+                        color={accent.primary}
                       />
                     </View>
 
@@ -828,29 +765,25 @@ export default function HomeScreen() {
           <SectionHeading title="Spending Overview" />
 
           <View style={styles.chartHeader}>
-            <Text style={styles.periodText}>
-              Last 7 days
-            </Text>
+            <Text style={styles.periodText}>Last 7 days</Text>
 
             <Ionicons
               name="calendar-outline"
               size={14}
-              color="#777D89"
+              color={colors.muted}
             />
           </View>
 
           <View style={styles.chart}>
             <View style={styles.yAxis}>
-              {[1, 0.75, 0.5, 0.25, 0].map(
-                (fraction, index) => (
-                  <Text
-                    key={index}
-                    style={styles.axisLabel}
-                  >
-                    {money(maxChart * fraction)}
-                  </Text>
-                )
-              )}
+              {[1, 0.75, 0.5, 0.25, 0].map((fraction, index) => (
+                <Text
+                  key={index}
+                  style={styles.axisLabel}
+                >
+                  {money(maxChart * fraction)}
+                </Text>
+              ))}
             </View>
 
             <View style={styles.chartContent}>
@@ -873,8 +806,7 @@ export default function HomeScreen() {
                       style={[
                         styles.bar,
                         { height: item.height },
-                        item.amount === 0 &&
-                          styles.emptyBar,
+                        item.amount === 0 && styles.emptyBar,
                       ]}
                     />
 
@@ -888,9 +820,7 @@ export default function HomeScreen() {
           </View>
 
           {!loading &&
-          spendingData.every(
-            (item) => item.amount === 0
-          ) ? (
+          spendingData.every((item) => item.amount === 0) ? (
             <Text style={styles.noSpending}>
               No expenses recorded in the last 7 days.
             </Text>
@@ -902,15 +832,13 @@ export default function HomeScreen() {
           <SectionHeading
             title="Recent Transactions"
             action="Income History"
-            onAction={() =>
-              router.push('/income-history')
-            }
+            onAction={() => router.push('/income-history')}
           />
 
           <View style={styles.transactionsCard}>
             {loading ? (
               <ActivityIndicator
-                color="#1687FF"
+                color={accent.primary}
                 style={{ padding: 25 }}
               />
             ) : transactions.length === 0 ? (
@@ -918,7 +846,7 @@ export default function HomeScreen() {
                 <Ionicons
                   name="receipt-outline"
                   size={30}
-                  color="#A0A6B4"
+                  color={colors.muted}
                 />
 
                 <Text style={styles.emptyTitle}>
@@ -926,8 +854,7 @@ export default function HomeScreen() {
                 </Text>
 
                 <Text style={styles.emptySubtitle}>
-                  Your income and expense bills will appear
-                  here.
+                  Your income and expense bills will appear here.
                 </Text>
               </View>
             ) : (
@@ -969,8 +896,7 @@ export default function HomeScreen() {
                   <Text
                     style={[
                       styles.transactionAmount,
-                      item.type === 'income' &&
-                        styles.incomeAmount,
+                      item.type === 'income' && styles.incomeAmount,
                     ]}
                   >
                     {item.type === 'income' ? '+' : '-'}
@@ -990,9 +916,7 @@ export default function HomeScreen() {
         visible={notificationsVisible}
         transparent
         animationType="fade"
-        onRequestClose={() =>
-          setNotificationsVisible(false)
-        }
+        onRequestClose={() => setNotificationsVisible(false)}
       >
         <Pressable
           style={styles.modalOverlay}
@@ -1016,15 +940,13 @@ export default function HomeScreen() {
               </View>
 
               <TouchableOpacity
-                onPress={() =>
-                  setNotificationsVisible(false)
-                }
+                onPress={() => setNotificationsVisible(false)}
                 style={styles.closeButton}
               >
                 <Ionicons
                   name="close"
                   size={20}
-                  color="#17233D"
+                  color={colors.text}
                 />
               </TouchableOpacity>
             </View>
@@ -1056,9 +978,7 @@ export default function HomeScreen() {
                     key={item.id}
                     style={styles.notificationRow}
                   >
-                    <View
-                      style={styles.notificationSuccessIcon}
-                    >
+                    <View style={styles.notificationSuccessIcon}>
                       <Ionicons
                         name="trophy-outline"
                         size={20}
@@ -1071,16 +991,13 @@ export default function HomeScreen() {
                         {item.title}
                       </Text>
 
-                      <Text
-                        style={styles.notificationMessage}
-                      >
+                      <Text style={styles.notificationMessage}>
                         {item.message}
                       </Text>
 
                       <Text style={styles.notificationDate}>
                         {new Date(
-                          item.created_at.replace(' ', 'T') +
-                            'Z'
+                          item.created_at.replace(' ', 'T') + 'Z'
                         ).toLocaleDateString('en-GB', {
                           day: 'numeric',
                           month: 'short',
@@ -1095,13 +1012,9 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               style={styles.doneButton}
-              onPress={() =>
-                setNotificationsVisible(false)
-              }
+              onPress={() => setNotificationsVisible(false)}
             >
-              <Text style={styles.doneButtonText}>
-                DONE
-              </Text>
+              <Text style={styles.doneButtonText}>DONE</Text>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
@@ -1110,606 +1023,613 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F7F8FA',
-  },
-
-  scrollContent: {
-    paddingHorizontal: 19,
-    paddingBottom: 22,
-  },
-
-  header: {
-    height: 61,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  logo: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: '#151925',
-    letterSpacing: -0.8,
-  },
-
-  notificationButton: {
-    padding: 7,
-    position: 'relative',
-  },
-
-  notificationDot: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#E34D4D',
-    borderWidth: 1.5,
-    borderColor: '#F7F8FA',
-  },
-
-  profileGreeting: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#EDF0F5',
-  },
-
-  profileGreetingText: {
-    flex: 1,
-    paddingRight: 12,
-  },
-
-  profileEyebrow: {
-    color: '#8992A5',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.1,
-    marginBottom: 4,
-  },
-
-  profileGreetingTitle: {
-    color: '#17233D',
-    fontSize: 19,
-    fontWeight: '800',
-  },
-
-  profileGreetingSubtitle: {
-    color: '#8992A5',
-    fontSize: 11,
-    marginTop: 3,
-  },
-
-  homeProfileAvatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#6256F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  homeProfileInitials: {
-    color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '800',
-  },
-
-  homeProfileImage: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#E9ECF2',
-  },
-
-  balanceCard: {
-    minHeight: 197,
-    borderRadius: 21,
-    padding: 20,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    shadowColor: '#0870E9',
-    shadowOffset: { width: 0, height: 9 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 7,
-  },
-
-  balanceTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-
-  balanceLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-
-  balanceLabel: {
-    color: '#EAF5FF',
-    fontSize: 13,
-  },
-
-  cardArrow: {
-    width: 33,
-    height: 33,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  balanceAmount: {
-    color: '#FFFFFF',
-    fontSize: 34,
-    fontWeight: '700',
-    letterSpacing: -1,
-    marginTop: 2,
-  },
-
-  balanceDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 15,
-  },
-
-  balanceColumn: {
-    flex: 1,
-    gap: 7,
-  },
-
-  detailLabel: {
-    color: '#D8EBFF',
-    fontSize: 12,
-  },
-
-  detailAmount: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-
-  verticalDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    marginRight: 28,
-  },
-
-  spendingSection: {
-    marginTop: 31,
-  },
-
-  sectionHeading: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 13,
-  },
-
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#171B28',
-  },
-
-  actionText: {
-    color: '#0877F9',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-
-  chartHeader: {
-    position: 'absolute',
-    right: 0,
-    top: -4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E9EBEF',
-    borderRadius: 10,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-  },
-
-  periodText: {
-    fontSize: 11,
-    color: '#747986',
-  },
-
-  chart: {
-    height: 210,
-    flexDirection: 'row',
-    marginTop: 4,
-  },
-
-  yAxis: {
-    width: 57,
-    justifyContent: 'space-between',
-    paddingBottom: 25,
-    paddingTop: 1,
-  },
-
-  axisLabel: {
-    fontSize: 8,
-    color: '#8A8F99',
-  },
-
-  chartContent: {
-    flex: 1,
-    position: 'relative',
-    justifyContent: 'flex-end',
-  },
-
-  gridLines: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 25,
-    justifyContent: 'space-between',
-  },
-
-  gridLine: {
-    height: 1,
-    backgroundColor: '#E9EBEF',
-  },
-
-  bars: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-around',
-  },
-
-  barColumn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    height: '100%',
-    gap: 7,
-  },
-
-  bar: {
-    width: 18,
-    maxHeight: 128,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-    backgroundColor: '#1687F5',
-  },
-
-  emptyBar: {
-    opacity: 0.25,
-  },
-
-  dayLabel: {
-    fontSize: 10,
-    color: '#858995',
-    height: 17,
-  },
-
-  noSpending: {
-    fontSize: 11,
-    color: '#9296A0',
-    marginTop: 5,
-  },
-
-  goalsSection: {
-    marginTop: 25,
-  },
-
-  completedSection: {
-    marginTop: 23,
-  },
-
-  goalEmptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#E9ECF2',
-  },
-
-  goalEmptyIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#F0ECFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  goalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E9ECF2',
-  },
-
-  goalCardTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-
-  goalCardIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#F0ECFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  goalCardTitle: {
-    color: '#17233D',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-
-  goalCardSubtitle: {
-    color: '#8992A5',
-    fontSize: 10,
-    marginTop: 4,
-  },
-
-  goalPercent: {
-    color: '#6256F5',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-
-  goalTrack: {
-    height: 7,
-    backgroundColor: '#F0F1F6',
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginTop: 13,
-  },
-
-  goalFill: {
-    height: '100%',
-    backgroundColor: '#6256F5',
-    borderRadius: 8,
-  },
-
-  completedGoalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    marginBottom: 9,
-    borderWidth: 1,
-    borderColor: '#DFF1E8',
-  },
-
-  completedGoalIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: '#E8F7F1',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  transactionsSection: {
-    marginTop: 22,
-  },
-
-  transactionsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 13,
-    paddingHorizontal: 10,
-  },
-
-  transactionRow: {
-    minHeight: 55,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    paddingVertical: 9,
-  },
-
-  transactionBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#ECEEF2',
-  },
-
-  transactionIcon: {
-    width: 35,
-    height: 35,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  transactionInfo: {
-    flex: 1,
-    gap: 4,
-  },
-
-  transactionTitle: {
-    color: '#171B28',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-
-  transactionSubtitle: {
-    color: '#9296A0',
-    fontSize: 10,
-  },
-
-  transactionAmount: {
-    color: '#E34D4D',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-
-  incomeAmount: {
-    color: '#16A36A',
-  },
-
-  emptyTransactions: {
-    alignItems: 'center',
-    paddingVertical: 27,
-    paddingHorizontal: 15,
-  },
-
-  emptyTitle: {
-    color: '#171B28',
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 10,
-  },
-
-  emptySubtitle: {
-    color: '#9296A5',
-    fontSize: 10,
-    marginTop: 5,
-    textAlign: 'center',
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(10,15,30,0.48)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 22,
-  },
-
-  notificationCard: {
-    width: '100%',
-    maxWidth: 390,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 25,
-    padding: 22,
-  },
-
-  modalHandle: {
-    width: 42,
-    height: 5,
-    borderRadius: 5,
-    backgroundColor: '#D9DCE3',
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-
-  modalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 18,
-  },
-
-  modalTitle: {
-    color: '#17233D',
-    fontSize: 21,
-    fontWeight: '800',
-  },
-
-  modalSubtitle: {
-    color: '#8992A5',
-    fontSize: 11,
-    marginTop: 4,
-  },
-
-  closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: '#F1F2F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  noNotifications: {
-    alignItems: 'center',
-    paddingVertical: 22,
-  },
-
-  noNotificationIcon: {
-    width: 55,
-    height: 55,
-    borderRadius: 18,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  notificationCreature: {
-    fontSize: 31,
-  },
-
-  notificationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ECEEF2',
-  },
-
-  notificationSuccessIcon: {
-    width: 39,
-    height: 39,
-    borderRadius: 13,
-    backgroundColor: '#E9F8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  notificationTitle: {
-    color: '#17233D',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  notificationMessage: {
-    color: '#697386',
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-
-  notificationDate: {
-    color: '#A0A6B4',
-    fontSize: 10,
-    marginTop: 6,
-  },
-
-  doneButton: {
-    height: 47,
-    borderRadius: 13,
-    backgroundColor: '#6256F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 18,
-  },
-
-  doneButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-});
+function createStyles(
+  colors: ReturnType<typeof useAppearance>['colors'],
+  accent: ReturnType<typeof useAppearance>['accent']
+) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+
+    scrollContent: {
+      paddingHorizontal: 19,
+      paddingBottom: 22,
+    },
+
+    header: {
+      height: 61,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+
+    logo: {
+      fontSize: 23,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: -0.8,
+    },
+
+    notificationButton: {
+      padding: 7,
+      position: 'relative',
+    },
+
+    notificationDot: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      width: 9,
+      height: 9,
+      borderRadius: 5,
+      backgroundColor: '#E34D4D',
+      borderWidth: 1.5,
+      borderColor: colors.background,
+    },
+
+    profileGreeting: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.surface,
+      borderRadius: 18,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      marginBottom: 15,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    profileGreetingText: {
+      flex: 1,
+      paddingRight: 12,
+    },
+
+    profileEyebrow: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 1.1,
+      marginBottom: 4,
+    },
+
+    profileGreetingTitle: {
+      color: colors.text,
+      fontSize: 19,
+      fontWeight: '800',
+    },
+
+    profileGreetingSubtitle: {
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: 3,
+    },
+
+    homeProfileAvatar: {
+      width: 54,
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: accent.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    homeProfileInitials: {
+      color: '#FFFFFF',
+      fontSize: 19,
+      fontWeight: '800',
+    },
+
+    homeProfileImage: {
+      width: 54,
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: colors.input,
+    },
+
+    balanceCard: {
+      minHeight: 197,
+      borderRadius: 21,
+      padding: 20,
+      justifyContent: 'space-between',
+      overflow: 'hidden',
+      shadowColor: '#0870E9',
+      shadowOffset: { width: 0, height: 9 },
+      shadowOpacity: 0.2,
+      shadowRadius: 12,
+      elevation: 7,
+    },
+
+    balanceTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+
+    balanceLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 9,
+    },
+
+    balanceLabel: {
+      color: '#EAF5FF',
+      fontSize: 13,
+    },
+
+    cardArrow: {
+      width: 33,
+      height: 33,
+      borderRadius: 10,
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    balanceAmount: {
+      color: '#FFFFFF',
+      fontSize: 34,
+      fontWeight: '700',
+      letterSpacing: -1,
+      marginTop: 2,
+    },
+
+    balanceDetails: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 15,
+    },
+
+    balanceColumn: {
+      flex: 1,
+      gap: 7,
+    },
+
+    detailLabel: {
+      color: '#D8EBFF',
+      fontSize: 12,
+    },
+
+    detailAmount: {
+      color: '#FFFFFF',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+
+    verticalDivider: {
+      width: 1,
+      height: 40,
+      backgroundColor: 'rgba(255,255,255,0.25)',
+      marginRight: 28,
+    },
+
+    spendingSection: {
+      marginTop: 31,
+    },
+
+    sectionHeading: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 13,
+    },
+
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+
+    actionText: {
+      color: accent.primary,
+      fontSize: 12,
+      fontWeight: '500',
+    },
+
+    chartHeader: {
+      position: 'absolute',
+      right: 0,
+      top: -4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+    },
+
+    periodText: {
+      fontSize: 11,
+      color: colors.muted,
+    },
+
+    chart: {
+      height: 210,
+      flexDirection: 'row',
+      marginTop: 4,
+    },
+
+    yAxis: {
+      width: 57,
+      justifyContent: 'space-between',
+      paddingBottom: 25,
+      paddingTop: 1,
+    },
+
+    axisLabel: {
+      fontSize: 8,
+      color: colors.muted,
+    },
+
+    chartContent: {
+      flex: 1,
+      position: 'relative',
+      justifyContent: 'flex-end',
+    },
+
+    gridLines: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 25,
+      justifyContent: 'space-between',
+    },
+
+    gridLine: {
+      height: 1,
+      backgroundColor: colors.border,
+    },
+
+    bars: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-around',
+    },
+
+    barColumn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      height: '100%',
+      gap: 7,
+    },
+
+    bar: {
+      width: 18,
+      maxHeight: 128,
+      borderTopLeftRadius: 4,
+      borderTopRightRadius: 4,
+      backgroundColor: accent.primary,
+    },
+
+    emptyBar: {
+      opacity: 0.25,
+    },
+
+    dayLabel: {
+      fontSize: 10,
+      color: colors.muted,
+      height: 17,
+    },
+
+    noSpending: {
+      fontSize: 11,
+      color: colors.muted,
+      marginTop: 5,
+    },
+
+    goalsSection: {
+      marginTop: 25,
+    },
+
+    completedSection: {
+      marginTop: 23,
+    },
+
+    goalEmptyCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    goalEmptyIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: colors.input,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    goalCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 15,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    goalCardTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+
+    goalCardIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: colors.input,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    goalCardTitle: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+
+    goalCardSubtitle: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 4,
+    },
+
+    goalPercent: {
+      color: accent.primary,
+      fontSize: 12,
+      fontWeight: '900',
+    },
+
+    goalTrack: {
+      height: 7,
+      backgroundColor: colors.input,
+      borderRadius: 8,
+      overflow: 'hidden',
+      marginTop: 13,
+    },
+
+    goalFill: {
+      height: '100%',
+      backgroundColor: accent.primary,
+      borderRadius: 8,
+    },
+
+    completedGoalCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+      marginBottom: 9,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    completedGoalIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: '#E8F7F1',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    transactionsSection: {
+      marginTop: 22,
+    },
+
+    transactionsCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 13,
+      paddingHorizontal: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    transactionRow: {
+      minHeight: 55,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+      paddingVertical: 9,
+    },
+
+    transactionBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+
+    transactionIcon: {
+      width: 35,
+      height: 35,
+      borderRadius: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    transactionInfo: {
+      flex: 1,
+      gap: 4,
+    },
+
+    transactionTitle: {
+      color: colors.text,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+
+    transactionSubtitle: {
+      color: colors.muted,
+      fontSize: 10,
+    },
+
+    transactionAmount: {
+      color: '#E34D4D',
+      fontSize: 10,
+      fontWeight: '700',
+    },
+
+    incomeAmount: {
+      color: '#16A36A',
+    },
+
+    emptyTransactions: {
+      alignItems: 'center',
+      paddingVertical: 27,
+      paddingHorizontal: 15,
+    },
+
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      marginTop: 10,
+    },
+
+    emptySubtitle: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 5,
+      textAlign: 'center',
+    },
+
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(10,15,30,0.55)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 22,
+    },
+
+    notificationCard: {
+      width: '100%',
+      maxWidth: 390,
+      backgroundColor: colors.surface,
+      borderRadius: 25,
+      padding: 22,
+    },
+
+    modalHandle: {
+      width: 42,
+      height: 5,
+      borderRadius: 5,
+      backgroundColor: colors.border,
+      alignSelf: 'center',
+      marginBottom: 20,
+    },
+
+    modalTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 18,
+    },
+
+    modalTitle: {
+      color: colors.text,
+      fontSize: 21,
+      fontWeight: '800',
+    },
+
+    modalSubtitle: {
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: 4,
+    },
+
+    closeButton: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      backgroundColor: colors.input,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    noNotifications: {
+      alignItems: 'center',
+      paddingVertical: 22,
+    },
+
+    noNotificationIcon: {
+      width: 55,
+      height: 55,
+      borderRadius: 18,
+      backgroundColor: colors.input,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    notificationCreature: {
+      fontSize: 31,
+    },
+
+    notificationRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 12,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+
+    notificationSuccessIcon: {
+      width: 39,
+      height: 39,
+      borderRadius: 13,
+      backgroundColor: '#E9F8F0',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    notificationTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+
+    notificationMessage: {
+      color: colors.muted,
+      fontSize: 12,
+      lineHeight: 18,
+      marginTop: 4,
+    },
+
+    notificationDate: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 6,
+    },
+
+    doneButton: {
+      height: 47,
+      borderRadius: 13,
+      backgroundColor: accent.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 18,
+    },
+
+    doneButtonText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.7,
+    },
+  });
+}

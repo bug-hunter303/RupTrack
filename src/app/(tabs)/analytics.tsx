@@ -17,20 +17,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
-const C = {
-  background: '#F5F6FA',
-  white: '#FFFFFF',
-  navy: '#17233D',
-  muted: '#8992A5',
-  border: '#E9ECF2',
-  purple: '#7656D6',
-  purpleLight: '#F0ECFC',
-  green: '#16A673',
-  greenLight: '#E8F7F1',
-  red: '#E45B64',
-  redLight: '#FCEDEF',
-  blue: '#3998FF',
-};
+import { useAppearance } from '@/context/appearance-context';
 
 const PIE = [
   '#6C63FF',
@@ -44,6 +31,11 @@ const PIE = [
   '#E056FD',
   '#64748B',
 ];
+
+type Appearance = ReturnType<typeof useAppearance>;
+type ThemeColors = Appearance['colors'];
+type AccentColors = Appearance['accent'];
+type AnalyticsStyles = ReturnType<typeof createStyles>;
 
 type Bill = {
   id: number;
@@ -154,10 +146,6 @@ function key(date: Date): string {
   )}`;
 }
 
-function money(amount: number): string {
-  return `Rs. ${Math.round(amount).toLocaleString('en-IN')}`;
-}
-
 function monthKey(): string {
   const date = new Date();
 
@@ -210,9 +198,11 @@ function slicePath(
 function Section({
   title,
   right,
+  styles,
 }: {
   title: string;
   right?: string;
+  styles: AnalyticsStyles;
 }) {
   return (
     <View style={styles.sectionHeader}>
@@ -228,14 +218,18 @@ function Empty({
   icon,
   title,
   message,
+  styles,
+  colors,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   message: string;
+  styles: AnalyticsStyles;
+  colors: ThemeColors;
 }) {
   return (
     <View style={styles.empty}>
-      <Ionicons name={icon} size={30} color={C.muted} />
+      <Ionicons name={icon} size={30} color={colors.muted} />
       <Text style={styles.emptyTitle}>{title}</Text>
       <Text style={styles.emptyText}>{message}</Text>
     </View>
@@ -245,9 +239,15 @@ function Empty({
 function Pie({
   rows,
   total,
+  styles,
+  money,
+  colors,
 }: {
   rows: Pair[];
   total: number;
+  styles: AnalyticsStyles;
+  money: (amount: number) => string;
+  colors: ThemeColors;
 }) {
   return (
     <>
@@ -269,7 +269,7 @@ function Pie({
                     key={`${item.label}-${index}`}
                     d={path}
                     fill={PIE[index % PIE.length]}
-                    stroke="#FFFFFF"
+                    stroke={colors.surface}
                     strokeWidth={2}
                   />
                 );
@@ -317,6 +317,12 @@ function Pie({
 export default function AnalyticsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+
+  const { colors, accent, isDark, formatMoney } =
+    useAppearance();
+
+  const styles = createStyles(colors, accent, isDark);
+  const money = formatMoney;
 
   const [loading, setLoading] = useState(true);
   const [income, setIncome] = useState(0);
@@ -607,7 +613,10 @@ export default function AnalyticsScreen() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={C.purple} />
+        <ActivityIndicator
+          size="large"
+          color={accent.primary}
+        />
         <Text style={styles.loadingText}>
           Loading your analytics...
         </Text>
@@ -639,12 +648,16 @@ export default function AnalyticsScreen() {
           <Ionicons
             name="refresh"
             size={21}
-            color={C.navy}
+            color={colors.text}
           />
         </TouchableOpacity>
       </View>
 
-      <Section title="Monthly overview" right={monthName} />
+      <Section
+        title="Monthly overview"
+        right={monthName}
+        styles={styles}
+      />
 
       <View style={styles.summaryCard}>
         <Text style={styles.summaryLabel}>
@@ -655,7 +668,7 @@ export default function AnalyticsScreen() {
           style={[
             styles.savingsAmount,
             {
-              color: savings >= 0 ? C.green : C.red,
+              color: savings >= 0 ? '#16A673' : '#E45B64',
             },
           ]}
         >
@@ -671,7 +684,7 @@ export default function AnalyticsScreen() {
               <Ionicons
                 name="wallet-outline"
                 size={21}
-                color={C.green}
+                color="#16A673"
               />
             </View>
             <Text style={styles.smallLabel}>Income</Text>
@@ -687,7 +700,7 @@ export default function AnalyticsScreen() {
               <Ionicons
                 name="receipt-outline"
                 size={21}
-                color={C.red}
+                color="#E45B64"
               />
             </View>
             <Text style={styles.smallLabel}>Expenses</Text>
@@ -701,6 +714,7 @@ export default function AnalyticsScreen() {
       <Section
         title="Your budget"
         right={budget ? 'This month' : 'Not set yet'}
+        styles={styles}
       />
 
       <View style={styles.card}>
@@ -711,7 +725,7 @@ export default function AnalyticsScreen() {
                 <Ionicons
                   name="wallet"
                   size={21}
-                  color={C.purple}
+                  color={accent.primary}
                 />
               </View>
 
@@ -768,7 +782,7 @@ export default function AnalyticsScreen() {
             <Ionicons
               name="add-circle-outline"
               size={27}
-              color={C.purple}
+              color={accent.primary}
             />
             <Text style={styles.emptyTitle}>
               Set up your budget
@@ -782,7 +796,11 @@ export default function AnalyticsScreen() {
         )}
       </View>
 
-      <Section title="Your biggest bills" right="All time" />
+      <Section
+        title="Your biggest bills"
+        right="All time"
+        styles={styles}
+      />
 
       <View style={styles.card}>
         {billTotal <= 0 ? (
@@ -790,15 +808,24 @@ export default function AnalyticsScreen() {
             icon="pie-chart-outline"
             title="No bills to analyse yet"
             message="Save some expense bills to see where your money goes."
+            styles={styles}
+            colors={colors}
           />
         ) : (
-          <Pie rows={billsPie} total={billTotal} />
+          <Pie
+            rows={billsPie}
+            total={billTotal}
+            styles={styles}
+            money={money}
+            colors={colors}
+          />
         )}
       </View>
 
       <Section
         title="Your savings goals"
         right={`${goals.length} goals`}
+        styles={styles}
       />
 
       <View style={styles.card}>
@@ -807,10 +834,18 @@ export default function AnalyticsScreen() {
             icon="flag-outline"
             title="No savings goals yet"
             message="Create a goal in the Budget tab and its target will appear here."
+            styles={styles}
+            colors={colors}
           />
         ) : (
           <>
-            <Pie rows={goalRows} total={goalTotal} />
+            <Pie
+              rows={goalRows}
+              total={goalTotal}
+              styles={styles}
+              money={money}
+              colors={colors}
+            />
 
             {goals.map((goal) => {
               const percentage =
@@ -847,8 +882,8 @@ export default function AnalyticsScreen() {
                             width: `${percentage}%`,
                             backgroundColor:
                               goal.is_completed === 1
-                                ? C.green
-                                : C.purple,
+                                ? '#16A673'
+                                : accent.primary,
                           },
                         ]}
                       />
@@ -861,8 +896,8 @@ export default function AnalyticsScreen() {
                       {
                         color:
                           goal.is_completed === 1
-                            ? C.green
-                            : C.purple,
+                            ? '#16A673'
+                            : accent.primary,
                       },
                     ]}
                   >
@@ -878,6 +913,7 @@ export default function AnalyticsScreen() {
       <Section
         title="Savings vs expenses"
         right="Last 30 days"
+        styles={styles}
       />
 
       <View style={styles.card}>
@@ -891,6 +927,8 @@ export default function AnalyticsScreen() {
             icon="analytics-outline"
             title="Not enough activity yet"
             message="Add money to a savings goal and record expenses to build this chart."
+            styles={styles}
+            colors={colors}
           />
         ) : (
           <>
@@ -905,7 +943,7 @@ export default function AnalyticsScreen() {
                   y1="12"
                   x2="42"
                   y2="184"
-                  stroke="#CBD1DC"
+                  stroke={colors.border}
                   strokeWidth="1.3"
                 />
 
@@ -914,7 +952,7 @@ export default function AnalyticsScreen() {
                   y1="184"
                   x2="305"
                   y2="184"
-                  stroke="#CBD1DC"
+                  stroke={colors.border}
                   strokeWidth="1.3"
                 />
 
@@ -925,8 +963,9 @@ export default function AnalyticsScreen() {
                     y1={184 - index * 52}
                     x2="305"
                     y2={184 - index * 52}
-                    stroke="#EDF0F5"
+                    stroke={colors.border}
                     strokeWidth="1"
+                    opacity="0.65"
                   />
                 ))}
 
@@ -942,7 +981,7 @@ export default function AnalyticsScreen() {
                       (point.expense / maxY) * 155
                     }
                     r="4.5"
-                    fill={C.purple}
+                    fill={accent.primary}
                     opacity="0.78"
                   />
                 ))}
@@ -951,16 +990,16 @@ export default function AnalyticsScreen() {
                   x="42"
                   y="204"
                   fontSize="9"
-                  fill={C.muted}
+                  fill={colors.muted}
                 >
-                  Rs. 0
+                  {money(0)}
                 </SvgText>
 
                 <SvgText
                   x="305"
                   y="204"
                   fontSize="9"
-                  fill={C.muted}
+                  fill={colors.muted}
                   textAnchor="end"
                 >
                   {money(maxX)}
@@ -970,7 +1009,7 @@ export default function AnalyticsScreen() {
                   x="35"
                   y="185"
                   fontSize="8"
-                  fill={C.muted}
+                  fill={colors.muted}
                   textAnchor="end"
                 >
                   0
@@ -980,7 +1019,7 @@ export default function AnalyticsScreen() {
                   x="35"
                   y="28"
                   fontSize="8"
-                  fill={C.muted}
+                  fill={colors.muted}
                   textAnchor="end"
                 >
                   {maxY >= 1000
@@ -994,7 +1033,7 @@ export default function AnalyticsScreen() {
               <View
                 style={[
                   styles.dot,
-                  { backgroundColor: C.purple },
+                  { backgroundColor: accent.primary },
                 ]}
               />
               <Text style={styles.chartHint}>
@@ -1009,6 +1048,7 @@ export default function AnalyticsScreen() {
       <Section
         title="Weekly spending"
         right="Last 7 days"
+        styles={styles}
       />
 
       <View style={styles.card}>
@@ -1045,8 +1085,10 @@ export default function AnalyticsScreen() {
                       {
                         height,
                         backgroundColor: today
-                          ? C.purple
-                          : '#B9AAEB',
+                          ? accent.primary
+                          : isDark
+                            ? '#514879'
+                            : '#B9AAEB',
                       },
                     ]}
                   />
@@ -1073,6 +1115,7 @@ export default function AnalyticsScreen() {
       <Section
         title="Where it goes"
         right="All recorded bills"
+        styles={styles}
       />
 
       <View style={styles.card}>
@@ -1081,6 +1124,8 @@ export default function AnalyticsScreen() {
             icon="pricetags-outline"
             title="Nothing to break down yet"
             message="Save an expense bill with some items to see your breakdown here."
+            styles={styles}
+            colors={colors}
           />
         ) : (
           items.map((item, index) => (
@@ -1105,6 +1150,7 @@ export default function AnalyticsScreen() {
                       width: `${
                         (item.amount / maxItem) * 100
                       }%`,
+                      backgroundColor: accent.primary,
                     },
                   ]}
                 />
@@ -1130,6 +1176,8 @@ export default function AnalyticsScreen() {
             icon="receipt-outline"
             title="No bills yet"
             message="Your saved expense bills will appear here."
+            styles={styles}
+            colors={colors}
           />
         ) : (
           recent.map((bill, index) => (
@@ -1149,7 +1197,7 @@ export default function AnalyticsScreen() {
                 <Ionicons
                   name="receipt-outline"
                   size={20}
-                  color={C.purple}
+                  color={accent.primary}
                 />
               </View>
 
@@ -1174,7 +1222,7 @@ export default function AnalyticsScreen() {
               <Ionicons
                 name="chevron-forward"
                 size={17}
-                color={C.muted}
+                color={colors.muted}
               />
             </TouchableOpacity>
           ))
@@ -1188,432 +1236,442 @@ export default function AnalyticsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: C.background,
-  },
-  content: {
-    padding: 22,
-    paddingTop: 60,
-    paddingBottom: 110,
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: C.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: C.muted,
-    marginTop: 12,
-    fontSize: 14,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 25,
-  },
-  eyebrow: {
-    color: C.purple,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 7,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: C.navy,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: C.muted,
-    marginTop: 5,
-  },
-  refresh: {
-    height: 44,
-    width: 44,
-    borderRadius: 15,
-    backgroundColor: C.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 13,
-    marginTop: 10,
-  },
-  sectionTitle: {
-    color: C.navy,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  monthLabel: {
-    color: C.muted,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  summaryCard: {
-    backgroundColor: C.white,
-    borderRadius: 22,
-    padding: 20,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  summaryLabel: {
-    color: C.muted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  savingsAmount: {
-    fontSize: 29,
-    fontWeight: '900',
-    marginTop: 9,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: C.border,
-    marginVertical: 18,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  verticalDivider: {
-    width: 1,
-    height: 75,
-    backgroundColor: C.border,
-    marginHorizontal: 10,
-  },
-  incomeIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: C.greenLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  expenseIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: C.redLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  smallLabel: {
-    color: C.muted,
-    fontSize: 12,
-    marginBottom: 5,
-  },
-  summaryValue: {
-    color: C.navy,
-    fontSize: 15,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  card: {
-    backgroundColor: C.white,
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  cardSubtitle: {
-    color: C.muted,
-    fontSize: 12,
-    marginBottom: 13,
-    lineHeight: 18,
-  },
-  budgetTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-  },
-  budgetIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: C.purpleLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  budgetHeading: {
-    color: C.navy,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  budgetCaption: {
-    color: C.muted,
-    fontSize: 10,
-    marginTop: 4,
-  },
-  editText: {
-    color: C.purple,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  budgetGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 18,
-  },
-  budgetMetric: {
-    flex: 1,
-    backgroundColor: '#F7F7FC',
-    borderRadius: 12,
-    padding: 10,
-  },
-  metricLabel: {
-    color: C.muted,
-    fontSize: 9,
-    marginBottom: 7,
-  },
-  metricValue: {
-    color: C.navy,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  budgetEmpty: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 22,
-  },
-  emptyTitle: {
-    color: C.navy,
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 10,
-  },
-  emptyText: {
-    color: C.muted,
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 17,
-    marginTop: 6,
-    maxWidth: 250,
-  },
-  pieContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 12,
-  },
-  legend: {
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 15,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 13,
-  },
-  legendLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
-  },
-  dot: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    marginRight: 10,
-  },
-  legendName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: C.navy,
-    flex: 1,
-  },
-  legendAmount: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: C.navy,
-  },
-  goalProgressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingTop: 14,
-    marginTop: 13,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-  },
-  goalName: {
-    color: C.navy,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  goalMeta: {
-    color: C.muted,
-    fontSize: 10,
-    marginTop: 4,
-  },
-  goalTrack: {
-    height: 6,
-    backgroundColor: '#F0F1F6',
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginTop: 9,
-  },
-  goalFill: {
-    height: '100%',
-    borderRadius: 10,
-  },
-  goalPct: {
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  scatterWrap: {
-    marginTop: 5,
-  },
-  scatterLegend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-  },
-  chartHint: {
-    color: C.muted,
-    fontSize: 10,
-    marginTop: 13,
-  },
-  chart: {
-    height: 180,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  chartColumn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    height: '100%',
-  },
-  barAmount: {
-    color: C.muted,
-    fontSize: 9,
-    height: 17,
-    marginBottom: 5,
-    fontWeight: '600',
-  },
-  barTrack: {
-    height: 130,
-    width: 20,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-  bar: {
-    width: 17,
-    borderRadius: 8,
-    minHeight: 4,
-  },
-  dayLabel: {
-    color: C.muted,
-    fontSize: 10,
-    marginTop: 9,
-    fontWeight: '600',
-  },
-  todayLabel: {
-    color: C.purple,
-    fontWeight: '900',
-  },
-  breakdownItem: {
-    marginBottom: 19,
-  },
-  breakdownTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 9,
-  },
-  breakdownName: {
-    color: C.navy,
-    fontSize: 13,
-    fontWeight: '700',
-    flex: 1,
-    marginRight: 12,
-  },
-  breakdownAmount: {
-    color: C.navy,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  progressTrack: {
-    height: 7,
-    backgroundColor: '#F0F1F6',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: C.purple,
-    borderRadius: 10,
-  },
-  seeAll: {
-    color: C.purple,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  billRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-  },
-  billIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
-    backgroundColor: C.purpleLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  billName: {
-    color: C.navy,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  billDate: {
-    color: C.muted,
-    fontSize: 10,
-    marginTop: 4,
-  },
-  billAmount: {
-    color: C.red,
-    fontSize: 12,
-    fontWeight: '800',
-    marginRight: 8,
-  },
-  footer: {
-    color: C.muted,
-    fontSize: 9,
-    textAlign: 'center',
-    letterSpacing: 1.2,
-    fontWeight: '700',
-    marginTop: 5,
-  },
-});
+function createStyles(
+  colors: ThemeColors,
+  accent: AccentColors,
+  isDark: boolean
+) {
+  const greenLight = isDark ? '#173B32' : '#E8F7F1';
+  const redLight = isDark ? '#40262D' : '#FCEDEF';
+  const purpleLight = accent.soft;
+  const track = isDark ? '#303746' : '#F0F1F6';
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 22,
+      paddingTop: 60,
+      paddingBottom: 110,
+    },
+    loading: {
+      flex: 1,
+      backgroundColor: colors.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      color: colors.muted,
+      marginTop: 12,
+      fontSize: 14,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 25,
+    },
+    eyebrow: {
+      color: accent.primary,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.5,
+      marginBottom: 7,
+    },
+    title: {
+      fontSize: 30,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: colors.muted,
+      marginTop: 5,
+    },
+    refresh: {
+      height: 44,
+      width: 44,
+      borderRadius: 15,
+      backgroundColor: colors.surface,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 13,
+      marginTop: 10,
+    },
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '800',
+    },
+    monthLabel: {
+      color: colors.muted,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    summaryCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 22,
+      padding: 20,
+      marginBottom: 25,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    summaryLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1,
+    },
+    savingsAmount: {
+      fontSize: 29,
+      fontWeight: '900',
+      marginTop: 9,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 18,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    summaryItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    verticalDivider: {
+      width: 1,
+      height: 75,
+      backgroundColor: colors.border,
+      marginHorizontal: 10,
+    },
+    incomeIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: greenLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    expenseIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: redLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 8,
+    },
+    smallLabel: {
+      color: colors.muted,
+      fontSize: 12,
+      marginBottom: 5,
+    },
+    summaryValue: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 22,
+      padding: 18,
+      marginBottom: 25,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardSubtitle: {
+      color: colors.muted,
+      fontSize: 12,
+      marginBottom: 13,
+      lineHeight: 18,
+    },
+    budgetTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+    },
+    budgetIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: purpleLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    budgetHeading: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    budgetCaption: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 4,
+    },
+    editText: {
+      color: accent.primary,
+      fontSize: 10,
+      fontWeight: '900',
+      letterSpacing: 0.5,
+    },
+    budgetGrid: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 18,
+    },
+    budgetMetric: {
+      flex: 1,
+      backgroundColor: colors.input,
+      borderRadius: 12,
+      padding: 10,
+    },
+    metricLabel: {
+      color: colors.muted,
+      fontSize: 9,
+      marginBottom: 7,
+    },
+    metricValue: {
+      color: colors.text,
+      fontSize: 11,
+      fontWeight: '800',
+    },
+    budgetEmpty: {
+      alignItems: 'center',
+      paddingVertical: 16,
+    },
+    empty: {
+      alignItems: 'center',
+      paddingVertical: 22,
+    },
+    emptyTitle: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '800',
+      marginTop: 10,
+    },
+    emptyText: {
+      color: colors.muted,
+      fontSize: 11,
+      textAlign: 'center',
+      lineHeight: 17,
+      marginTop: 6,
+      maxWidth: 250,
+    },
+    pieContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: 12,
+    },
+    legend: {
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: 15,
+    },
+    legendRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 13,
+    },
+    legendLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: 10,
+    },
+    dot: {
+      width: 11,
+      height: 11,
+      borderRadius: 6,
+      marginRight: 10,
+    },
+    legendName: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+      flex: 1,
+    },
+    legendAmount: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    goalProgressRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingTop: 14,
+      marginTop: 13,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    goalName: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    goalMeta: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 4,
+    },
+    goalTrack: {
+      height: 6,
+      backgroundColor: track,
+      borderRadius: 10,
+      overflow: 'hidden',
+      marginTop: 9,
+    },
+    goalFill: {
+      height: '100%',
+      borderRadius: 10,
+    },
+    goalPct: {
+      fontSize: 11,
+      fontWeight: '900',
+    },
+    scatterWrap: {
+      marginTop: 5,
+    },
+    scatterLegend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 3,
+    },
+    chartHint: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 13,
+    },
+    chart: {
+      height: 180,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+    },
+    chartColumn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      height: '100%',
+    },
+    barAmount: {
+      color: colors.muted,
+      fontSize: 9,
+      height: 17,
+      marginBottom: 5,
+      fontWeight: '600',
+    },
+    barTrack: {
+      height: 130,
+      width: 20,
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+    },
+    bar: {
+      width: 17,
+      borderRadius: 8,
+      minHeight: 4,
+    },
+    dayLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 9,
+      fontWeight: '600',
+    },
+    todayLabel: {
+      color: accent.primary,
+      fontWeight: '900',
+    },
+    breakdownItem: {
+      marginBottom: 19,
+    },
+    breakdownTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 9,
+    },
+    breakdownName: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      flex: 1,
+      marginRight: 12,
+    },
+    breakdownAmount: {
+      color: colors.text,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    progressTrack: {
+      height: 7,
+      backgroundColor: track,
+      borderRadius: 10,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 10,
+    },
+    seeAll: {
+      color: accent.primary,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    billRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 13,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    billIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 13,
+      backgroundColor: purpleLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+    },
+    billName: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    billDate: {
+      color: colors.muted,
+      fontSize: 10,
+      marginTop: 4,
+    },
+    billAmount: {
+      color: '#E45B64',
+      fontSize: 12,
+      fontWeight: '800',
+      marginRight: 8,
+    },
+    footer: {
+      color: colors.muted,
+      fontSize: 9,
+      textAlign: 'center',
+      letterSpacing: 1.2,
+      fontWeight: '700',
+      marginTop: 5,
+    },
+  });
+}

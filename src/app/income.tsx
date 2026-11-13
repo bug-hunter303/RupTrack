@@ -1,18 +1,24 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+
+import { useAppearance } from '@/context/appearance-context';
 
 type SalarySettings = {
   amount: number;
@@ -20,21 +26,14 @@ type SalarySettings = {
   enabled: number;
 };
 
-const COLORS = {
-  background: '#F5F6FA',
-  white: '#FFFFFF',
-  navy: '#17233D',
-  muted: '#8B93A7',
-  purple: '#6256F5',
-  green: '#16A673',
-  border: '#ECEEF4',
+type ThemeColors = {
+  background: string;
+  surface: string;
+  text: string;
+  muted: string;
+  border: string;
+  input: string;
 };
-
-function formatMoney(amount: number) {
-  return `Rs. ${amount.toLocaleString('en-IN', {
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 function getTodayISO() {
   const today = new Date();
@@ -49,6 +48,9 @@ export default function IncomeScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
 
+  const { colors, accent, isDark, formatMoney } = useAppearance();
+  const styles = createStyles(colors, accent.primary, isDark);
+
   const [salaryAmount, setSalaryAmount] = useState('');
   const [creditDay, setCreditDay] = useState('1');
 
@@ -60,6 +62,22 @@ export default function IncomeScreen() {
   const [savingSalary, setSavingSalary] = useState(false);
   const [savingIncome, setSavingIncome] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalSuccess, setModalSuccess] = useState(true);
+
+  const showMessage = (
+    title: string,
+    message: string,
+    success: boolean
+  ) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalSuccess(success);
+    setModalVisible(true);
+  };
 
   const refreshIncome = useCallback(async () => {
     setLoading(true);
@@ -127,9 +145,11 @@ export default function IncomeScreen() {
       setTotalIncome(Number(result?.total ?? 0));
     } catch (error) {
       console.error('Could not load income:', error);
-      Alert.alert(
+
+      showMessage(
         'Something went wrong',
-        'Could not load your income data.'
+        'Could not load your income data.',
+        false
       );
     } finally {
       setLoading(false);
@@ -151,7 +171,11 @@ export default function IncomeScreen() {
       !Number.isFinite(amount) ||
       amount <= 0
     ) {
-      Alert.alert('Invalid salary', 'Please enter a valid salary amount.');
+      showMessage(
+        'Invalid salary',
+        'Please enter a valid salary amount.',
+        false
+      );
       return;
     }
 
@@ -161,7 +185,11 @@ export default function IncomeScreen() {
       day < 1 ||
       day > 31
     ) {
-      Alert.alert('Invalid credit day', 'Enter a day between 1 and 31.');
+      showMessage(
+        'Invalid credit day',
+        'Enter a day between 1 and 31.',
+        false
+      );
       return;
     }
 
@@ -181,13 +209,19 @@ export default function IncomeScreen() {
 
       await refreshIncome();
 
-      Alert.alert(
+      showMessage(
         'Salary settings saved',
-        'Your monthly salary has been configured.'
+        'Your monthly salary has been configured.',
+        true
       );
     } catch (error) {
       console.error('Could not save salary:', error);
-      Alert.alert('Error', 'Could not save your salary settings.');
+
+      showMessage(
+        'Error',
+        'Could not save your salary settings.',
+        false
+      );
     } finally {
       setSavingSalary(false);
     }
@@ -198,7 +232,11 @@ export default function IncomeScreen() {
     const amount = Number(additionalAmount);
 
     if (!description) {
-      Alert.alert('Missing description', 'Give this income a name first.');
+      showMessage(
+        'Missing description',
+        'Give this income a name first.',
+        false
+      );
       return;
     }
 
@@ -207,7 +245,11 @@ export default function IncomeScreen() {
       !Number.isFinite(amount) ||
       amount <= 0
     ) {
-      Alert.alert('Invalid amount', 'Please enter a valid amount.');
+      showMessage(
+        'Invalid amount',
+        'Please enter a valid amount.',
+        false
+      );
       return;
     }
 
@@ -227,519 +269,732 @@ export default function IncomeScreen() {
 
       await refreshIncome();
 
-      Alert.alert('Income added', 'Your additional income was saved.');
+      showMessage(
+        'Income added',
+        'Your additional income was saved.',
+        true
+      );
     } catch (error) {
       console.error('Could not add income:', error);
-      Alert.alert('Error', 'Could not save this income.');
+
+      showMessage(
+        'Error',
+        'Could not save this income.',
+        false
+      );
     } finally {
       setSavingIncome(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top']}
     >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() =>
-              router.canGoBack()
-                ? router.back()
-                : router.replace('/(tabs)')
-            }
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="arrow-back"
-              size={23}
-              color={COLORS.navy}
-            />
-          </TouchableOpacity>
-
-          <View style={styles.headerText}>
-            <Text style={styles.eyebrow}>RUPEETRACK</Text>
-            <Text style={styles.title}>Your Income</Text>
-            <Text style={styles.subtitle}>
-              Every rupee coming your way.
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.headerIcon}
-            onPress={() => router.push('/income-history')}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name="receipt-outline"
-              size={25}
-              color={COLORS.green}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Total Income */}
-        <View style={styles.totalCard}>
-          <View style={styles.totalTopRow}>
-            <View style={styles.totalIcon}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable
+              style={styles.backButton}
+              onPress={() =>
+                router.canGoBack()
+                  ? router.back()
+                  : router.replace('/(tabs)')
+              }
+            >
               <Ionicons
-                name="wallet-outline"
-                size={21}
-                color="#FFFFFF"
-              />
-            </View>
-            <Text style={styles.totalLabel}>
-              TOTAL RECORDED INCOME
-            </Text>
-          </View>
-
-          <Text style={styles.totalAmount}>
-            {loading ? 'Loading...' : formatMoney(totalIncome)}
-          </Text>
-
-          <Text style={styles.totalFootnote}>
-            From your saved income entries
-          </Text>
-        </View>
-
-        {/* Monthly Salary */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Monthly salary</Text>
-
-          <View style={styles.recurringBadge}>
-            <Ionicons name="repeat" size={12} color={COLORS.green} />
-            <Text style={styles.recurringText}>RECURRING</Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeading}>
-            <View style={styles.salaryIcon}>
-              <Ionicons
-                name="briefcase-outline"
-                size={21}
-                color={COLORS.purple}
-              />
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>
-                Your monthly salary
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                Set how much you earn each month.
-              </Text>
-            </View>
-          </View>
-
-          <Text style={styles.inputLabel}>SALARY AMOUNT</Text>
-
-          <View style={styles.amountInputWrapper}>
-            <Text style={styles.currencyPrefix}>Rs.</Text>
-            <TextInput
-              style={styles.amountInput}
-              value={salaryAmount}
-              onChangeText={setSalaryAmount}
-              placeholder="e.g. 50000"
-              placeholderTextColor="#B5BAC7"
-              keyboardType="decimal-pad"
-            />
-          </View>
-
-          <Text style={styles.inputLabel}>SALARY CREDIT DAY</Text>
-
-          <View style={styles.dayInputWrapper}>
-            <TextInput
-              style={styles.dayInput}
-              value={creditDay}
-              onChangeText={setCreditDay}
-              placeholder="1"
-              placeholderTextColor="#B5BAC7"
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-            <Text style={styles.daySuffix}>
-              DAY OF EVERY MONTH
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              savingSalary && styles.disabledButton,
-            ]}
-            onPress={saveSalarySettings}
-            disabled={savingSalary}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryButtonText}>
-              {savingSalary
-                ? 'SAVING...'
-                : salaryConfigured
-                  ? 'UPDATE SALARY SETTINGS'
-                  : 'SAVE SALARY SETTINGS'}
-            </Text>
-            <Ionicons
-              name="arrow-forward"
-              size={17}
-              color="#FFFFFF"
-            />
-          </TouchableOpacity>
-
-          <View style={styles.infoRow}>
-            <Ionicons
-              name="information-circle-outline"
-              size={16}
-              color={COLORS.muted}
-            />
-            <Text style={styles.infoText}>
-              Salary is credited once per month when you open the app
-              on or after your selected day.
-            </Text>
-          </View>
-        </View>
-
-        {/* Additional Income */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Additional income</Text>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeading}>
-            <View style={styles.additionalIcon}>
-              <Ionicons
-                name="add"
+                name="arrow-back"
                 size={23}
-                color={COLORS.green}
+                color={colors.text}
+              />
+            </Pressable>
+
+            <View style={styles.headerText}>
+              <Text style={styles.eyebrow}>RUPEETRACK</Text>
+              <Text style={styles.title}>Your Income</Text>
+              <Text style={styles.subtitle}>
+                Every rupee coming your way.
+              </Text>
+            </View>
+
+            <Pressable
+              style={styles.headerIcon}
+              onPress={() => router.push('/income-history')}
+            >
+              <Ionicons
+                name="receipt-outline"
+                size={25}
+                color={accent.primary}
+              />
+            </Pressable>
+          </View>
+
+          {/* Total Income */}
+          <View style={styles.totalCard}>
+            <View style={styles.totalTopRow}>
+              <View style={styles.totalIcon}>
+                <Ionicons
+                  name="wallet-outline"
+                  size={21}
+                  color="#FFFFFF"
+                />
+              </View>
+
+              <Text style={styles.totalLabel}>
+                TOTAL RECORDED INCOME
+              </Text>
+            </View>
+
+            <Text style={styles.totalAmount}>
+              {loading ? 'Loading...' : formatMoney(totalIncome)}
+            </Text>
+
+            <Text style={styles.totalFootnote}>
+              From your saved income entries
+            </Text>
+          </View>
+
+          {/* Monthly Salary */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Monthly salary</Text>
+
+            <View style={styles.recurringBadge}>
+              <Ionicons
+                name="repeat"
+                size={12}
+                color="#16A673"
+              />
+              <Text style={styles.recurringText}>RECURRING</Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <View style={styles.cardHeading}>
+              <View style={styles.salaryIcon}>
+                <Ionicons
+                  name="briefcase-outline"
+                  size={21}
+                  color={accent.primary}
+                />
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>
+                  Your monthly salary
+                </Text>
+
+                <Text style={styles.cardSubtitle}>
+                  Set how much you earn each month.
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>SALARY AMOUNT</Text>
+
+            <View style={styles.amountInputWrapper}>
+              <Text style={styles.currencyPrefix}>
+                {formatMoney(0).replace(/[\d.,\s]/g, '')}
+              </Text>
+
+              <TextInput
+                style={styles.amountInput}
+                value={salaryAmount}
+                onChangeText={setSalaryAmount}
+                placeholder="e.g. 50000"
+                placeholderTextColor={colors.muted}
+                keyboardType="decimal-pad"
               />
             </View>
 
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle}>Got extra money?</Text>
-              <Text style={styles.cardSubtitle}>
-                Freelance, gifts, bonuses and more.
+            <Text style={styles.inputLabel}>
+              SALARY CREDIT DAY
+            </Text>
+
+            <View style={styles.dayInputWrapper}>
+              <TextInput
+                style={styles.dayInput}
+                value={creditDay}
+                onChangeText={setCreditDay}
+                placeholder="1"
+                placeholderTextColor={colors.muted}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+
+              <Text style={styles.daySuffix}>
+                DAY OF EVERY MONTH
+              </Text>
+            </View>
+
+            <Pressable
+              style={[
+                styles.primaryButton,
+                savingSalary && styles.disabledButton,
+              ]}
+              onPress={saveSalarySettings}
+              disabled={savingSalary}
+            >
+              {savingSalary ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Text style={styles.primaryButtonText}>
+                    {salaryConfigured
+                      ? 'UPDATE SALARY SETTINGS'
+                      : 'SAVE SALARY SETTINGS'}
+                  </Text>
+
+                  <Ionicons
+                    name="arrow-forward"
+                    size={17}
+                    color="#FFFFFF"
+                  />
+                </>
+              )}
+            </Pressable>
+
+            <View style={styles.infoRow}>
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={colors.muted}
+              />
+
+              <Text style={styles.infoText}>
+                Salary is credited once per month when you open the app
+                on or after your selected day.
               </Text>
             </View>
           </View>
 
-          <Text style={styles.inputLabel}>INCOME DESCRIPTION</Text>
-
-          <TextInput
-            style={styles.textInput}
-            value={additionalDescription}
-            onChangeText={setAdditionalDescription}
-            placeholder="e.g. Freelance project"
-            placeholderTextColor="#B5BAC7"
-            maxLength={60}
-          />
-
-          <Text style={styles.inputLabel}>AMOUNT</Text>
-
-          <View style={styles.amountInputWrapper}>
-            <Text style={styles.currencyPrefix}>Rs.</Text>
-            <TextInput
-              style={styles.amountInput}
-              value={additionalAmount}
-              onChangeText={setAdditionalAmount}
-              placeholder="e.g. 5000"
-              placeholderTextColor="#B5BAC7"
-              keyboardType="decimal-pad"
-            />
+          {/* Additional Income */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              Additional income
+            </Text>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.additionalButton,
-              savingIncome && styles.disabledButton,
-            ]}
-            onPress={addAdditionalIncome}
-            disabled={savingIncome}
-            activeOpacity={0.85}
-          >
-            <Ionicons
-              name="add-circle-outline"
-              size={19}
-              color="#FFFFFF"
-            />
-            <Text style={styles.primaryButtonText}>
-              {savingIncome ? 'ADDING...' : 'ADD INCOME'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.card}>
+            <View style={styles.cardHeading}>
+              <View style={styles.additionalIcon}>
+                <Ionicons
+                  name="add"
+                  size={23}
+                  color={accent.primary}
+                />
+              </View>
 
-        <View style={{ height: 35 }} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle}>
+                  Got extra money?
+                </Text>
+
+                <Text style={styles.cardSubtitle}>
+                  Freelance, gifts, bonuses and more.
+                </Text>
+              </View>
+            </View>
+
+            <Text style={styles.inputLabel}>
+              INCOME DESCRIPTION
+            </Text>
+
+            <TextInput
+              style={styles.textInput}
+              value={additionalDescription}
+              onChangeText={setAdditionalDescription}
+              placeholder="e.g. Freelance project"
+              placeholderTextColor={colors.muted}
+              maxLength={60}
+            />
+
+            <Text style={styles.inputLabel}>AMOUNT</Text>
+
+            <View style={styles.amountInputWrapper}>
+              <Text style={styles.currencyPrefix}>
+                {formatMoney(0).replace(/[\d.,\s]/g, '')}
+              </Text>
+
+              <TextInput
+                style={styles.amountInput}
+                value={additionalAmount}
+                onChangeText={setAdditionalAmount}
+                placeholder="e.g. 5000"
+                placeholderTextColor={colors.muted}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <Pressable
+              style={[
+                styles.additionalButton,
+                savingIncome && styles.disabledButton,
+              ]}
+              onPress={addAdditionalIncome}
+              disabled={savingIncome}
+            >
+              {savingIncome ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={19}
+                    color="#FFFFFF"
+                  />
+
+                  <Text style={styles.primaryButtonText}>
+                    ADD INCOME
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+
+          <View style={{ height: 35 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Custom RupeeTrack Popup */}
+      <Modal
+        transparent
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View
+              style={[
+                styles.modalIcon,
+                !modalSuccess && styles.modalIconError,
+              ]}
+            >
+              <Ionicons
+                name={
+                  modalSuccess
+                    ? 'checkmark'
+                    : 'alert-circle-outline'
+                }
+                size={28}
+                color={modalSuccess ? '#16A673' : '#D65353'}
+              />
+            </View>
+
+            <Text style={styles.modalTitle}>
+              {modalTitle}
+            </Text>
+
+            <Text style={styles.modalMessage}>
+              {modalMessage}
+            </Text>
+
+            <Pressable
+              style={styles.modalButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>
+                Okay
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 58,
-    paddingBottom: 30,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 23,
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  headerText: {
-    flex: 1,
-  },
-  eyebrow: {
-    color: COLORS.purple,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 2,
-    marginBottom: 7,
-  },
-  title: {
-    color: COLORS.navy,
-    fontSize: 29,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: COLORS.muted,
-    fontSize: 13,
-    marginTop: 5,
-  },
-  headerIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#E7F7F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 10,
-  },
-  totalCard: {
-    backgroundColor: COLORS.navy,
-    borderRadius: 23,
-    padding: 22,
-    marginBottom: 28,
-  },
-  totalTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  totalIcon: {
-    width: 35,
-    height: 35,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  totalLabel: {
-    color: '#C7CDDA',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  totalAmount: {
-    color: '#FFFFFF',
-    fontSize: 31,
-    fontWeight: '800',
-    marginTop: 18,
-  },
-  totalFootnote: {
-    color: '#AEB8CB',
-    fontSize: 11,
-    marginTop: 5,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 13,
-  },
-  sectionTitle: {
-    color: COLORS.navy,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  recurringBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#E5F7EF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  recurringText: {
-    color: COLORS.green,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-  card: {
-    backgroundColor: COLORS.white,
-    borderRadius: 21,
-    padding: 19,
-    marginBottom: 27,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cardHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 23,
-  },
-  salaryIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: '#EFEDFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  additionalIcon: {
-    width: 43,
-    height: 43,
-    borderRadius: 14,
-    backgroundColor: '#E5F7EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    color: COLORS.navy,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  cardSubtitle: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  inputLabel: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 9,
-    marginTop: 4,
-  },
-  amountInputWrapper: {
-    height: 53,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    marginBottom: 18,
-  },
-  currencyPrefix: {
-    color: COLORS.navy,
-    fontSize: 14,
-    fontWeight: '800',
-    marginRight: 10,
-  },
-  amountInput: {
-    flex: 1,
-    color: COLORS.navy,
-    fontSize: 16,
-    fontWeight: '700',
-    paddingVertical: 0,
-  },
-  dayInputWrapper: {
-    height: 53,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    marginBottom: 20,
-  },
-  dayInput: {
-    width: 45,
-    color: COLORS.navy,
-    fontSize: 17,
-    fontWeight: '800',
-    paddingVertical: 0,
-  },
-  daySuffix: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  primaryButton: {
-    height: 52,
-    backgroundColor: COLORS.purple,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  additionalButton: {
-    height: 52,
-    backgroundColor: COLORS.green,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-    marginTop: 3,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 7,
-    marginTop: 14,
-  },
-  infoText: {
-    flex: 1,
-    color: COLORS.muted,
-    fontSize: 10,
-    lineHeight: 15,
-  },
-  textInput: {
-    height: 53,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 13,
-    paddingHorizontal: 14,
-    color: COLORS.navy,
-    fontSize: 14,
-    marginBottom: 18,
-  },
-});
+function createStyles(
+  colors: ThemeColors,
+  primary: string,
+  isDark: boolean
+) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+
+    scrollContent: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      paddingBottom: 30,
+    },
+
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 23,
+    },
+
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    headerText: {
+      flex: 1,
+    },
+
+    eyebrow: {
+      color: primary,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 2,
+      marginBottom: 7,
+    },
+
+    title: {
+      color: colors.text,
+      fontSize: 29,
+      fontWeight: '800',
+    },
+
+    subtitle: {
+      color: colors.muted,
+      fontSize: 13,
+      marginTop: 5,
+    },
+
+    headerIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 16,
+      backgroundColor: isDark
+        ? `${primary}25`
+        : `${primary}18`,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 10,
+    },
+
+    totalCard: {
+      backgroundColor: isDark ? colors.surface : '#17233D',
+      borderRadius: 23,
+      padding: 22,
+      marginBottom: 28,
+      borderWidth: isDark ? 1 : 0,
+      borderColor: colors.border,
+    },
+
+    totalTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+
+    totalIcon: {
+      width: 35,
+      height: 35,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.14)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    totalLabel: {
+      color: isDark ? colors.muted : '#C7CDDA',
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1.2,
+    },
+
+    totalAmount: {
+      color: isDark ? colors.text : '#FFFFFF',
+      fontSize: 31,
+      fontWeight: '800',
+      marginTop: 18,
+    },
+
+    totalFootnote: {
+      color: isDark ? colors.muted : '#AEB8CB',
+      fontSize: 11,
+      marginTop: 5,
+    },
+
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 13,
+    },
+
+    sectionTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+
+    recurringBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: isDark ? '#18372E' : '#E5F7EF',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+    },
+
+    recurringText: {
+      color: '#16A673',
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 0.7,
+    },
+
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 21,
+      padding: 19,
+      marginBottom: 27,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    cardHeading: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 23,
+    },
+
+    salaryIcon: {
+      width: 43,
+      height: 43,
+      borderRadius: 14,
+      backgroundColor: isDark ? `${primary}25` : `${primary}18`,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    additionalIcon: {
+      width: 43,
+      height: 43,
+      borderRadius: 14,
+      backgroundColor: isDark ? `${primary}25` : `${primary}18`,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    cardTitle: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+
+    cardSubtitle: {
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: 4,
+      lineHeight: 16,
+    },
+
+    inputLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1,
+      marginBottom: 9,
+      marginTop: 4,
+    },
+
+    amountInputWrapper: {
+      height: 53,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.input,
+      borderRadius: 13,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      marginBottom: 18,
+    },
+
+    currencyPrefix: {
+      color: colors.text,
+      fontSize: 14,
+      fontWeight: '800',
+      marginRight: 10,
+    },
+
+    amountInput: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+      paddingVertical: 0,
+    },
+
+    dayInputWrapper: {
+      height: 53,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.input,
+      borderRadius: 13,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      marginBottom: 20,
+    },
+
+    dayInput: {
+      width: 45,
+      color: colors.text,
+      fontSize: 17,
+      fontWeight: '800',
+      paddingVertical: 0,
+    },
+
+    daySuffix: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1,
+    },
+
+    primaryButton: {
+      height: 52,
+      backgroundColor: primary,
+      borderRadius: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+
+    additionalButton: {
+      height: 52,
+      backgroundColor: primary,
+      borderRadius: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 9,
+      marginTop: 3,
+    },
+
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 0.8,
+    },
+
+    disabledButton: {
+      opacity: 0.6,
+    },
+
+    infoRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 7,
+      marginTop: 14,
+    },
+
+    infoText: {
+      flex: 1,
+      color: colors.muted,
+      fontSize: 10,
+      lineHeight: 15,
+    },
+
+    textInput: {
+      height: 53,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.input,
+      borderRadius: 13,
+      paddingHorizontal: 14,
+      color: colors.text,
+      fontSize: 14,
+      marginBottom: 18,
+    },
+
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(17, 24, 39, 0.58)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 25,
+    },
+
+    modalCard: {
+      width: '100%',
+      maxWidth: 340,
+      backgroundColor: colors.surface,
+      borderRadius: 22,
+      padding: 24,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    modalIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: isDark ? '#18372E' : '#E8F8F1',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 14,
+    },
+
+    modalIconError: {
+      backgroundColor: isDark ? '#40262D' : '#FFF0F0',
+    },
+
+    modalTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+
+    modalMessage: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 20,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+
+    modalButton: {
+      height: 46,
+      alignSelf: 'stretch',
+      borderRadius: 12,
+      backgroundColor: primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 20,
+    },
+
+    modalButtonText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+  });
+}

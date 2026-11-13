@@ -1,3 +1,4 @@
+
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -9,14 +10,16 @@ import {
   Image,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+
+import { useAppearance } from '@/context/appearance-context';
 
 type ProfileRow = {
   name: string;
@@ -26,6 +29,9 @@ type ProfileRow = {
 export default function ProfileSettingsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+
+  const { colors, accent, isDark } = useAppearance();
+  const styles = createStyles(colors, accent.primary, isDark);
 
   const [name, setName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -215,8 +221,11 @@ export default function ProfileSettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
+    <SafeAreaView
+      style={styles.safeArea}
+      edges={['top']}
+    >
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={styles.header}>
         <Pressable
@@ -226,7 +235,7 @@ export default function ProfileSettingsScreen() {
           <Ionicons
             name="chevron-back"
             size={23}
-            color="#17233D"
+            color={colors.text}
           />
         </Pressable>
 
@@ -239,7 +248,7 @@ export default function ProfileSettingsScreen() {
         <View style={styles.loadingWrap}>
           <ActivityIndicator
             size="large"
-            color="#6256F5"
+            color={accent.primary}
           />
         </View>
       ) : (
@@ -290,7 +299,7 @@ export default function ProfileSettingsScreen() {
                 <Ionicons
                   name="image-outline"
                   size={16}
-                  color="#6256F5"
+                  color={accent.primary}
                 />
 
                 <Text style={styles.changePhotoText}>
@@ -330,14 +339,14 @@ export default function ProfileSettingsScreen() {
               <Ionicons
                 name="person-outline"
                 size={19}
-                color="#8992A5"
+                color={colors.muted}
               />
 
               <TextInput
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter your name"
-                placeholderTextColor="#A6ADBA"
+                placeholderTextColor={colors.muted}
                 style={styles.input}
                 autoCapitalize="words"
                 maxLength={50}
@@ -429,281 +438,296 @@ export default function ProfileSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F7F8FA',
+function createStyles(
+  colors: {
+    background: string;
+    surface: string;
+    text: string;
+    muted: string;
+    border: string;
+    input: string;
   },
+  primary: string,
+  isDark: boolean
+) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  header: {
-    height: 58,
-    paddingHorizontal: 19,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
+    header: {
+      height: 58,
+      paddingHorizontal: 19,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
 
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E9ECF2',
-  },
+    backButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  headerTitle: {
-    color: '#17233D',
-    fontSize: 18,
-    fontWeight: '800',
-  },
+    headerTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+    },
 
-  headerSpacer: {
-    width: 38,
-  },
+    headerSpacer: {
+      width: 38,
+    },
 
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    loadingWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 35,
-  },
+    content: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 35,
+    },
 
-  avatarSection: {
-    alignItems: 'center',
-    paddingVertical: 18,
-    marginBottom: 20,
-  },
+    avatarSection: {
+      alignItems: 'center',
+      paddingVertical: 18,
+      marginBottom: 20,
+    },
 
-  avatarWrap: {
-    width: 116,
-    height: 116,
-    position: 'relative',
-    marginBottom: 14,
-  },
+    avatarWrap: {
+      width: 116,
+      height: 116,
+      position: 'relative',
+      marginBottom: 14,
+    },
 
-  avatar: {
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    backgroundColor: '#E9ECF2',
-  },
+    avatar: {
+      width: 116,
+      height: 116,
+      borderRadius: 58,
+      backgroundColor: colors.border,
+    },
 
-  avatarFallback: {
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    backgroundColor: '#6256F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    avatarFallback: {
+      width: 116,
+      height: 116,
+      borderRadius: 58,
+      backgroundColor: primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  avatarInitials: {
-    color: '#FFFFFF',
-    fontSize: 37,
-    fontWeight: '800',
-  },
+    avatarInitials: {
+      color: '#FFFFFF',
+      fontSize: 37,
+      fontWeight: '800',
+    },
 
-  cameraButton: {
-    position: 'absolute',
-    right: 0,
-    bottom: 2,
-    width: 37,
-    height: 37,
-    borderRadius: 19,
-    backgroundColor: '#2878E5',
-    borderWidth: 3,
-    borderColor: '#F7F8FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    cameraButton: {
+      position: 'absolute',
+      right: 0,
+      bottom: 2,
+      width: 37,
+      height: 37,
+      borderRadius: 19,
+      backgroundColor: '#2878E5',
+      borderWidth: 3,
+      borderColor: colors.background,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
 
-  profileNamePreview: {
-    color: '#17233D',
-    fontSize: 20,
-    fontWeight: '800',
-  },
+    profileNamePreview: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '800',
+    },
 
-  avatarHint: {
-    color: '#8992A5',
-    fontSize: 12,
-    marginTop: 4,
-  },
+    avatarHint: {
+      color: colors.muted,
+      fontSize: 12,
+      marginTop: 4,
+    },
 
-  photoActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 14,
-  },
+    photoActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 14,
+    },
 
-  changePhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 10,
-    backgroundColor: '#EFEEFF',
-  },
+    changePhotoButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 13,
+      paddingVertical: 9,
+      borderRadius: 10,
+      backgroundColor: isDark ? '#292442' : '#EFEEFF',
+    },
 
-  changePhotoText: {
-    color: '#6256F5',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+    changePhotoText: {
+      color: primary,
+      fontSize: 12,
+      fontWeight: '700',
+    },
 
-  removePhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 10,
-    backgroundColor: '#FFF0F0',
-  },
+    removePhotoButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 13,
+      paddingVertical: 9,
+      borderRadius: 10,
+      backgroundColor: isDark ? '#40262D' : '#FFF0F0',
+    },
 
-  removePhotoText: {
-    color: '#D65353',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+    removePhotoText: {
+      color: '#D65353',
+      fontSize: 12,
+      fontWeight: '700',
+    },
 
-  formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#E9ECF2',
-  },
+    formCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 17,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  sectionLabel: {
-    color: '#8992A5',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 20,
-  },
+    sectionLabel: {
+      color: colors.muted,
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 1,
+      marginBottom: 20,
+    },
 
-  fieldLabel: {
-    color: '#17233D',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 9,
-  },
+    fieldLabel: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 9,
+    },
 
-  inputWrap: {
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E8EF',
-    backgroundColor: '#FAFBFD',
-    paddingHorizontal: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
+    inputWrap: {
+      height: 52,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.input,
+      paddingHorizontal: 13,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
 
-  input: {
-    flex: 1,
-    color: '#17233D',
-    fontSize: 14,
-    paddingVertical: 0,
-  },
+    input: {
+      flex: 1,
+      color: colors.text,
+      fontSize: 14,
+      paddingVertical: 0,
+    },
 
-  helperText: {
-    color: '#8992A5',
-    fontSize: 11,
-    marginTop: 10,
-  },
+    helperText: {
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: 10,
+    },
 
-  saveButton: {
-    height: 54,
-    borderRadius: 14,
-    backgroundColor: '#6256F5',
-    marginTop: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-  },
+    saveButton: {
+      height: 54,
+      borderRadius: 14,
+      backgroundColor: primary,
+      marginTop: 22,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 9,
+    },
 
-  saveButtonDisabled: {
-    opacity: 0.65,
-  },
+    saveButtonDisabled: {
+      opacity: 0.65,
+    },
 
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
+    saveButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '800',
+    },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 25,
-  },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(17, 24, 39, 0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 25,
+    },
 
-  modalCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 24,
-    alignItems: 'center',
-  },
+    modalCard: {
+      width: '100%',
+      maxWidth: 340,
+      backgroundColor: colors.surface,
+      borderRadius: 22,
+      padding: 24,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  modalIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#E8F8F1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
+    modalIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: isDark ? '#18372E' : '#E8F8F1',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 14,
+    },
 
-  modalIconError: {
-    backgroundColor: '#FFF0F0',
-  },
+    modalIconError: {
+      backgroundColor: isDark ? '#40262D' : '#FFF0F0',
+    },
 
-  modalTitle: {
-    color: '#17233D',
-    fontSize: 18,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
+    modalTitle: {
+      color: colors.text,
+      fontSize: 18,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
 
-  modalMessage: {
-    color: '#8992A5',
-    fontSize: 13,
-    lineHeight: 20,
-    textAlign: 'center',
-    marginTop: 8,
-  },
+    modalMessage: {
+      color: colors.muted,
+      fontSize: 13,
+      lineHeight: 20,
+      textAlign: 'center',
+      marginTop: 8,
+    },
 
-  modalButton: {
-    height: 46,
-    alignSelf: 'stretch',
-    borderRadius: 12,
-    backgroundColor: '#6256F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
+    modalButton: {
+      height: 46,
+      alignSelf: 'stretch',
+      borderRadius: 12,
+      backgroundColor: primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 20,
+    },
 
-  modalButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-});
+    modalButtonText: {
+      color: '#FFFFFF',
+      fontSize: 13,
+      fontWeight: '800',
+    },
+  });
+}
