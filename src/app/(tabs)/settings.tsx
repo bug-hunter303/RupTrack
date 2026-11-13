@@ -165,23 +165,6 @@ export default function SettingsScreen() {
             </View>
           ))}
         </View>
-
-        {/* App footer */}
-        <View style={styles.footer}>
-          <View style={styles.footerLogo}>
-            <Ionicons
-              name="wallet"
-              size={21}
-              color={COLORS.white}
-            />
-          </View>
-
-          <Text style={styles.footerTitle}>RupeeTrack</Text>
-          <Text style={styles.footerSubtitle}>
-            Your money. Your control.
-          </Text>
-          <Text style={styles.version}>Version 1.0.0</Text>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
