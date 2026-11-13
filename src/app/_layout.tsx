@@ -1,4 +1,3 @@
-
 import {
   DarkTheme,
   DefaultTheme,
@@ -11,11 +10,13 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { useEffect } from 'react';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { AppLockScreen } from '@/components/app-lock-screen';
 import { initializeDatabase } from '@/db/database';
 import {
   AppearanceProvider,
   useAppearance,
 } from '@/context/appearance-context';
+import { SecurityProvider } from '@/context/security-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -80,6 +81,9 @@ function AppNavigation() {
           options={{ presentation: 'card' }}
         />
       </Stack>
+
+      {/* Covers the app whenever authentication is required. */}
+      <AppLockScreen />
     </ThemeProvider>
   );
 }
@@ -91,7 +95,9 @@ export default function RootLayout() {
       onInit={initializeDatabase}
     >
       <AppearanceProvider>
-        <AppNavigation />
+        <SecurityProvider>
+          <AppNavigation />
+        </SecurityProvider>
       </AppearanceProvider>
     </SQLiteProvider>
   );
